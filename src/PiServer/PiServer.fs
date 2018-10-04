@@ -45,6 +45,24 @@ let stop (nodeServices : INodeServices) = task {
         return r
 }
 
+let executeAction (nodeServices : INodeServices) (action:TagAction) =
+    match action with
+    | TagAction.UnknownTag -> 
+        task { 
+            return "Unknown Tag"
+        }
+    | TagAction.StopMusik -> 
+        task {
+            let! _ = stop nodeServices
+            return "Stopped"
+        }
+    | TagAction.PlayMusik url -> 
+        task {
+            let! _ = stop nodeServices
+            play nodeServices url |> ignore
+            return (sprintf "Playing %s" url)
+        }
+
 
 let executeTag (nodeServices : INodeServices) (tag:string) = task {
     use webClient = new System.Net.WebClient()
@@ -53,24 +71,17 @@ let executeTag (nodeServices : INodeServices) (tag:string) = task {
     
     match Decode.fromString Tag.Decoder result with
     | Error msg -> return failwith msg
-    | Ok tag ->
-        return!
-            match tag.Action with
-            | TagAction.UnknownTag -> 
-                task { 
-                    return "Unknown Tag"
-                }
-            | TagAction.StopMusik -> 
-                task {
-                    let! _ = stop nodeServices
-                    return "Stopped"
-                }
-            | TagAction.PlayMusik url -> 
-                task {
-                    let! _ = stop nodeServices
-                    play nodeServices url |> ignore
-                    return (sprintf "Playing %s" url)
-                }
+    | Ok tag -> return! executeAction nodeServices tag.Action
+}
+
+let executeStartupAction (nodeServices : INodeServices) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf @"%s/api/startup" tagServer
+    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+    
+    match Decode.fromString TagAction.Decoder result with
+    | Error msg -> return failwith msg
+    | Ok action -> return! executeAction nodeServices action
 }
 
 let webApp = router {
@@ -93,14 +104,15 @@ let app = application {
     use_gzip
 }
 
-// let x = app.Build()
-// x.Start()
+let x = app.Build()
+x.Start()
 
-// printfn "Started"
+printfn "Started"
 
-// let service = x.Services.GetService(typeof<INodeServices>) :?> INodeServices
+let service = x.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-// let t = executeTag service "celeb"
-// t.Wait()
+let t = executeStartupAction service
+t.Wait()
+printfn "%s" t.Result
 
-run app
+System.Console.ReadKey() |> ignore

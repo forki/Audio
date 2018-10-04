@@ -10,9 +10,12 @@ let publicPath = Path.GetFullPath "../Client/public"
 let audioPath = Path.GetFullPath "../../audio"
 let port = 8085us
 
+let mediaServer = sprintf "http://localhost:%d" port
+let mp3Server = sprintf "%s/api/audio/mp3" mediaServer
+
 let tags = {
     Tags = [|
-        { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"http://localhost:%d/api/audio/mp3/%s" port "Celebrate") }
+        { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" mp3Server "Celebrate") }
         { Token = "stop"; Action = TagAction.StopMusik }
     |]
 }
@@ -54,11 +57,24 @@ let tagEndpoint token =
         })
     }
 
+
+let startupEndpoint =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let action = TagAction.PlayMusik (sprintf @"%s/%s" mp3Server "startup")
+            
+            let txt = TagAction.Encoder action |> Encode.toString 0
+            return! setBodyFromString txt next ctx
+        })
+    }
+
 let webApp =
     router {
         getf "/api/audio/mp3/%s" mp3Endpoint
         getf "/api/tags/%s" tagEndpoint
         get "/api/alltags" allTagsEndpoint
+        get "/api/startup" startupEndpoint
     }
 
 let configureSerialization (services:IServiceCollection) =

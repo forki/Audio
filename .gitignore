@@ -11,8 +11,7 @@ release.sh
 .idea/
 *.DotSettings.user
 deploy
-/src/Server/bar.jpg
 /tools/
-/audio
+/audio/mp3/custom
 /.ionide/symbolCache.db
 /yarn-error.log

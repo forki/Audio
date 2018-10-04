@@ -1,0 +1,19 @@
+cache:
+  paths:
+    - packages/
+    - node_modules/
+
+stages:
+  - build
+
+build:win:
+  stage: build
+  cache:
+    key: "%CI_COMMIT_REF_NAME"
+  script:
+    # - .\dotnet-install.ps1 -InstallDir tools
+    - IF EXIST build.cmd build.cmd Build
+  tags:
+    - Build
+    - NodeJS
+

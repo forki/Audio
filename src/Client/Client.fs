@@ -3,7 +3,6 @@ module Client
 open Elmish
 open Elmish.React
 open Fable.PowerPack
-open Fable.Helpers.React
 
 #if FABLE_COMPILER
 open Thoth.Json
@@ -33,17 +32,13 @@ let runIn (timeSpan:System.TimeSpan) successMsg errorMsg =
 let fetchData() = promise {
     let! res = Fetch.fetch "api/alltags" []
     let! txt = res.text()
+
     match Decode.fromString TagList.Decoder txt with
     | Ok tags -> return tags
     | Error msg -> return failwith msg
 }
 
-let fetchBestPlanCmd =
-    Cmd.ofPromise
-        fetchData
-        ()
-        (Ok >> TagsLoaded)
-        (Error >> TagsLoaded)
+let fetchBestPlanCmd = Cmd.ofPromise fetchData () (Ok >> TagsLoaded) (Error >> TagsLoaded)
 
 let init () : Model * Cmd<Msg> =
     let initialModel = {
@@ -68,6 +63,10 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         model, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
 
 
+
+open Fable.Helpers.React
+open Fable.Helpers.React.Props
+
 let view (model : Model) (dispatch : Msg -> unit) =
     Hero.hero [ Hero.Color IsPrimary; Hero.IsFullHeight ]
         [ Hero.body [ ]
@@ -75,10 +74,17 @@ let view (model : Model) (dispatch : Msg -> unit) =
                 [ div [] [
                     h2 [] [str "Available Tags"]
                     table [][
+                        thead [][
+                            tr [] [
+                                th [] [ str "Tag"]
+                                th [] [ str "Action"]
+                            ]
+                        ]
                         tbody [][
                             for tag in model.Tags.Tags ->
-                                tr [] [
-                                    td [] [ str tag.Token]
+                                tr [ Id tag.Token ] [
+                                    td [ ] [ str tag.Token ]
+                                    td [ ] [ str (sprintf "%O" tag.Action) ]
                                 ]
                         ]
                     ] 

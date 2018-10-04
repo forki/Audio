@@ -47,19 +47,18 @@ let stop (nodeServices : INodeServices) = task {
 
 
 let executeTag (nodeServices : INodeServices) (tag:string) = task {
-    let tagsUrl tag = sprintf @"%s/tags/%s" tagServer tag
+    let tagsUrl tag = sprintf @"%s/api/tags/%s" tagServer tag
     let! url = webClient.DownloadStringTaskAsync(System.Uri (tagsUrl tag))
     let! _ = stop nodeServices
     runningTask <- play nodeServices url
-    return ()
+    return url
 }
 
 let webApp = router {
     getf "/play/%s" (fun tag next ctx -> task {
         let service = ctx.RequestServices.GetService(typeof<INodeServices>) :?> INodeServices
         let! r = executeTag service tag 
-        let txt = sprintf "test"
-        return! text txt next ctx
+        return! text r next ctx
     })
 
     get "/stop" (fun next ctx -> task {

@@ -1,3 +1,5 @@
 group Server
     FSharp.Core
     Saturn
+    Thoth.Json.Net
+    Thoth.Json

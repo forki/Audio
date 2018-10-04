@@ -6,3 +6,5 @@ group Client
     Fable.Core
     dotnet-fable
     Fulma
+    Thoth.Json.Net
+    Thoth.Json

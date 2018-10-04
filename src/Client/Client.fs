@@ -4,20 +4,22 @@ open Elmish
 open Elmish.React
 open Fable.PowerPack
 open Fable.Helpers.React
-open Fable.PowerPack.Fetch
-open Thoth.Json
-open Shared
 
+#if FABLE_COMPILER
+open Thoth.Json
+#else
+open Thoth.Json.Net
+#endif
+
+open Shared
 open Fulma
-open Fable.Core.JsInterop
 
 type Model = {
-    Clusters: Cluster []
-    CenterChanged : bool }
+    Tags: TagList }
 
 type Msg =
 | Fetch
-| ClustersLoaded of Result<Cluster [], exn>
+| TagsLoaded of Result<TagList, exn>
 | Err of exn
 
 let runIn (timeSpan:System.TimeSpan) successMsg errorMsg =
@@ -29,24 +31,25 @@ let runIn (timeSpan:System.TimeSpan) successMsg errorMsg =
 
 
 let fetchData() = promise {
-    let! res = Fetch.fetch "/api/tours" []
+    let! res = Fetch.fetch "api/alltags" []
     let! txt = res.text()
-    return Decode.Auto.unsafeFromString<Cluster []> txt
+    match Decode.fromString TagList.Decoder txt with
+    | Ok tags -> return tags
+    | Error msg -> return failwith msg
 }
 
 let fetchBestPlanCmd =
     Cmd.ofPromise
         fetchData
         ()
-        (Ok >> ClustersLoaded)
-        (Error >> ClustersLoaded)
+        (Ok >> TagsLoaded)
+        (Error >> TagsLoaded)
 
 let init () : Model * Cmd<Msg> =
     let initialModel = {
-        Clusters = [||]
-        CenterChanged = false }
+        Tags = { Tags = [||] }}
 
-    initialModel, Cmd.none //Cmd.ofMsg Fetch
+    initialModel, Cmd.ofMsg Fetch
 
 
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
@@ -55,11 +58,11 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | Fetch ->
         model, fetchBestPlanCmd
 
-    | ClustersLoaded (Ok clusters) ->
-        { model with Clusters = clusters }, Cmd.none
+    | TagsLoaded (Ok tags) ->
+        { model with Tags = tags }, Cmd.none
 
-    | ClustersLoaded (Error _ ) ->
-        { model with Clusters = [||] }, Cmd.ofMsg Fetch
+    | TagsLoaded (Error _ ) ->
+        model, Cmd.ofMsg Fetch
 
     | Err _ ->
         model, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
@@ -70,7 +73,15 @@ let view (model : Model) (dispatch : Msg -> unit) =
         [ Hero.body [ ]
             [ Container.container [ Container.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                 [ div [] [
-                    str "Hello"
+                    h2 [] [str "Available Tags"]
+                    table [][
+                        tbody [][
+                            for tag in model.Tags.Tags ->
+                                tr [] [
+                                    td [] [ str tag.Token]
+                                ]
+                        ]
+                    ] 
                   ] ] ] ]
 
 

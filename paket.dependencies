@@ -5,6 +5,9 @@ group Server
     nuget FSharp.Core
     nuget Saturn
     nuget Microsoft.AspNetCore.NodeServices
+    
+    nuget Thoth.Json.Net
+    nuget Thoth.Json
 
 group Client
     storage: none
@@ -15,6 +18,8 @@ group Client
     nuget Fable.Elmish.React
     nuget Fable.Elmish.HMR
     nuget Fulma
+    nuget Thoth.Json.Net
+    nuget Thoth.Json
 
     clitool dotnet-fable
 

@@ -10,49 +10,56 @@ let publicPath = Path.GetFullPath "../Client/public"
 let audioPath = Path.GetFullPath "../../audio"
 let port = 8085us
 
-let tags = { 
-    Tags = [| 
+let tags = {
+    Tags = [|
         { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"http://localhost:%d/api/audio/mp3/%s" port "Celebrate") }
         { Token = "stop"; Action = TagAction.StopMusik }
     |]
 }
 
-let allTags = 
+let allTags =
     tags.Tags
     |> Array.map (fun t -> t.Token,t)
     |> dict
 
-let allTagsEndpoint = 
+let allTagsEndpoint =
     pipeline {
+        set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             let txt = TagList.Encoder tags |> Encode.toString 0
-            ctx.SetContentType ("application/json")
             return! setBodyFromString txt next ctx
         })
-        set_header "Content-Type" "application/json"
     }
 
+let mp3Endpoint fileName =
+    pipeline {
+        set_header "Content-Type" "audio/mpeg"
+        plug (fun next ctx -> task {
+            let file = Path.Combine(audioPath,sprintf "mp3/%s.mp3" fileName)
+            return! ctx.WriteFileStreamAsync true file None None
+        })
+    }
 
-let webApp = router {
-    getf "/api/audio/mp3/%s" (fun fileName next ctx -> task {
-        let file = Path.Combine(audioPath,sprintf "mp3/%s.mp3" fileName)
-        ctx.SetContentType ("audio/mpeg")
-        return! ctx.WriteFileStreamAsync true file None None 
-    })
+let tagEndpoint token =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let tag =
+                match allTags.TryGetValue token with
+                | true, t -> t
+                | _ -> { Token = token; Action = TagAction.UnknownTag }
 
-    getf "/api/tags/%s" (fun (token:string) next ctx -> task {
-        let tag =
-            match allTags.TryGetValue token with
-            | true, t -> t
-            | _ -> { Token = token; Action = TagAction.UnknownTag }
+            let txt = Tag.Encoder tag |> Encode.toString 0
+            return! setBodyFromString txt next ctx
+        })
+    }
 
-        let txt = Tag.Encoder tag |> Encode.toString 0
-        ctx.SetContentType ("application/json")
-        return! setBodyFromString txt next ctx
-    })
-
-    get "/api/alltags" allTagsEndpoint    
-}
+let webApp =
+    router {
+        getf "/api/audio/mp3/%s" mp3Endpoint
+        getf "/api/tags/%s" tagEndpoint
+        get "/api/alltags" allTagsEndpoint
+    }
 
 let configureSerialization (services:IServiceCollection) =
     services

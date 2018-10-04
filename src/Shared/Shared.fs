@@ -7,6 +7,24 @@ open Thoth.Json.Net
 #endif
 
 
+type Firmware =
+    { Version : string
+      Url : string }
+
+    static member Encoder (firmware : Firmware) =
+        Encode.object [
+            "Version", Encode.string firmware.Version
+            "Url", Encode.string firmware.Url
+        ]
+
+    static member Decoder =
+        Decode.object (fun get ->
+            { Version = get.Required.Field "Version" Decode.string
+              Url = get.Required.Field "Url" Decode.string }
+        )
+
+
+
 [<RequireQualifiedAccess>]
 type TagAction =
 | UnknownTag

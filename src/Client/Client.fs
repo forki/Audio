@@ -14,11 +14,14 @@ open Shared
 open Fulma
 
 type Model = {
-    Tags: TagList }
+    Tags: TagList 
+    Firmware: Firmware option
+}
 
 type Msg =
-| Fetch
+| FetchTags
 | TagsLoaded of Result<TagList, exn>
+| FirmwareLoaded of Result<Firmware, exn>
 | Err of exn
 
 let runIn (timeSpan:System.TimeSpan) successMsg errorMsg =
@@ -38,26 +41,48 @@ let fetchData() = promise {
     | Error msg -> return failwith msg
 }
 
-let fetchBestPlanCmd = Cmd.ofPromise fetchData () (Ok >> TagsLoaded) (Error >> TagsLoaded)
+let fetchFirmware() = promise {
+    let! res = Fetch.fetch "api/firmware" []
+    let! txt = res.text()
+
+    match Decode.fromString Firmware.Decoder txt with
+    | Ok tags -> return tags
+    | Error msg -> return failwith msg
+}
+
+let fetchFirmwareCmd = Cmd.ofPromise fetchFirmware () (Ok >> FirmwareLoaded) (Error >> FirmwareLoaded)
+let fetchTagsCmd = Cmd.ofPromise fetchData () (Ok >> TagsLoaded) (Error >> TagsLoaded)
 
 let init () : Model * Cmd<Msg> =
     let initialModel = {
-        Tags = { Tags = [||] }}
+        Tags = { Tags = [||] }
+        Firmware = None
+    }
 
-    initialModel, Cmd.ofMsg Fetch
+    initialModel, 
+        Cmd.batch [
+            Cmd.ofMsg FetchTags
+            fetchFirmwareCmd
+        ]
 
 
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
 
-    | Fetch ->
-        model, fetchBestPlanCmd
+    | FetchTags ->
+        model, fetchTagsCmd
+
+    | FirmwareLoaded (Ok tags) ->
+        { model with Firmware = Some tags }, Cmd.none
+
+    | FirmwareLoaded _ ->
+        { model with Firmware = None }, Cmd.none
 
     | TagsLoaded (Ok tags) ->
         { model with Tags = tags }, Cmd.none
 
-    | TagsLoaded (Error _ ) ->
-        model, Cmd.ofMsg Fetch
+    | TagsLoaded _  ->
+        model, Cmd.ofMsg FetchTags
 
     | Err _ ->
         model, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
@@ -72,6 +97,10 @@ let view (model : Model) (dispatch : Msg -> unit) =
         [ Hero.body [ ]
             [ Container.container [ Container.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                 [ div [] [
+                    str "Latest Firmware: "
+                    (match model.Firmware with
+                     | None -> str "Unknown"
+                     | Some fw -> a [ Href fw.URL ] [ str fw.Version ])
                     h2 [] [str "Available Tags"]
                     table [][
                         thead [][

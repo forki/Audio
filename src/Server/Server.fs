@@ -73,12 +73,25 @@ let startupEndpoint =
         })
     }
 
+    
+let firmwareEndpoint =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let current = { Version = "0.1"; Url = "..."}
+            
+            let txt = Firmware.Encoder current |> Encode.toString 0
+            return! setBodyFromString txt next ctx
+        })
+    }
+
 let webApp =
     router {
         getf "/api/audio/mp3/%s" mp3Endpoint
         getf "/api/tags/%s" tagEndpoint
         get "/api/alltags" allTagsEndpoint
         get "/api/startup" startupEndpoint
+        get "/api/firmware" firmwareEndpoint
     }
 
 let configureSerialization (services:IServiceCollection) =

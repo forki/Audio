@@ -1,6 +1,7 @@
 # TBN
 
-This projects aims to provide music entertainment for toddlers. 
+This projects aims to provide music entertainment for toddlers.
+
 The idea is that children will get a WiFi connected box and some objects (e.g. PlayMobil figures) that are equipped with NFC stickers. Whenever the child is putting such an object on the box, the box will start to play audio.
 The NFC to audio URL translation can be configured on a server in the Azure cloud. 
 So a PlayMobil knight might make the box play a story about knights, or a picture with grandpa may play his voice telling a small story.
@@ -21,13 +22,13 @@ The Server component will be run on Azure and provides a service that resolves N
 
 ### WebClient
 
-The web client app will allow users to configure their Raspberry Pi and add NFC tags or upload audio files.
+The web client will allow users to configure their Raspberry Pi and add NFC tags or upload audio files.
 
 ## Additional features
 
 ### Local storage
 
-Users may want to keep audio files in their local network. The app will allow to configure such links to local NAS.
+Users may want to keep audio files in their local network. The web client will allow to configure such links to local NAS.
 
 ### Business times
 

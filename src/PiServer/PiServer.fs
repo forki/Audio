@@ -74,14 +74,18 @@ let executeTag (nodeServices : INodeServices) (tag:string) = task {
     | Ok tag -> return! executeAction nodeServices tag.Action
 }
 
-let executeStartupAction (nodeServices : INodeServices) = task {
+let executeStartupActions (nodeServices : INodeServices) = task {
     use webClient = new System.Net.WebClient()
     let url = sprintf @"%s/api/startup" tagServer
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
     
-    match Decode.fromString TagAction.Decoder result with
+    match Decode.fromString (Decode.list TagAction.Decoder) result with
     | Error msg -> return failwith msg
-    | Ok action -> return! executeAction nodeServices action
+    | Ok actions ->
+        return!
+            actions
+            |> List.map (executeAction nodeServices)
+            |> Task.WhenAll
 }
 
 let webApp = router {
@@ -111,8 +115,8 @@ printfn "Started"
 
 let service = x.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-let t = executeStartupAction service
+let t = executeStartupActions service
 t.Wait()
-printfn "%s" t.Result
+printfn "%A" t.Result
 
 System.Console.ReadKey() |> ignore

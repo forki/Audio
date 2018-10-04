@@ -62,9 +62,13 @@ let startupEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let action = TagAction.PlayMusik (sprintf @"%s/%s" mp3Server "startup")
+            let actions = [TagAction.PlayMusik (sprintf @"%s/%s" mp3Server "startup")]
             
-            let txt = TagAction.Encoder action |> Encode.toString 0
+            let txt = 
+                actions
+                |> List.map TagAction.Encoder
+                |> Encode.list
+                |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })
     }

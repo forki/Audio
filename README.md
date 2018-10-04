@@ -5,12 +5,30 @@ The idea is that children will get a WiFi connected box and some objects (e.g. P
 The NFC to audio URL translation can be configured on a server in the Azure cloud. 
 So a PlayMobil knight might make the box play a story about knights, or a picture with grandpa may play his voice telling a small story.
 
+There are couple of commercial solutions for this, but this project aims to create an open platform.
+
 ## Components
 
 ### Raspberry Pi
 
 The Raspberry Pi will be connected to an NFC/RFID-Card reader and a speaker module.
 
+[TODO: Explaing wiring]
+
 ### Server
 
 The Server component will be run on Azure and provides a service that resolves NFC tags to download/streaming URLs.
+
+### WebClient
+
+The web client app will allow users to configure their Raspberry Pi and add NFC tags or upload audio files.
+
+## Additional features
+
+### Local storage
+
+Users may want to keep audio files in their local network. The app will allow to configure such links to local NAS.
+
+### Business times
+
+Nobody wants their children to stay awake all night to play with this box. The website will allow to configure times where the system is inactive.

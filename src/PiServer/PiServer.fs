@@ -94,7 +94,11 @@ let checkFirmware () = task {
                 printfn "Starting download of %s" firmware.Url
                 do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
                 printfn "Download done."
-                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, System.IO.Path.GetFullPath "./install")
+                let target = System.IO.Path.GetFullPath "./install"
+                if System.IO.Directory.Exists target then
+                    System.IO.Directory.Delete(target,true)
+                System.IO.Directory.CreateDirectory(target) |> ignore
+                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, target)
                 System.IO.File.Delete localFileName
                 return Some firmware.Version
             else

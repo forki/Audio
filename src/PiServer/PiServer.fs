@@ -38,11 +38,9 @@ let play (nodeServices : INodeServices) (uri:string) = task {
 let stop (nodeServices : INodeServices) = task {
     if isWindows then
         let! r = nodeServices.InvokeExportAsync<string>("./play-audio", "stop")
-        printfn "Stopped"
         return r
     else
         let! r = nodeServices.InvokeExportAsync<string>("./play-audiostream", "stop")
-        printfn "Stopped"
         return r
 }
 
@@ -75,6 +73,34 @@ let executeTag (nodeServices : INodeServices) (tag:string) = task {
     match Decode.fromString Tag.Decoder result with
     | Error msg -> return failwith msg
     | Ok tag -> return! executeAction nodeServices tag.Action
+}
+
+let checkFirmware () = task {
+    use webClient = new System.Net.WebClient()
+    System.Net.ServicePointManager.SecurityProtocol <- 
+        System.Net.ServicePointManager.SecurityProtocol ||| 
+          System.Net.SecurityProtocolType.Tls11 |||
+          System.Net.SecurityProtocolType.Tls12
+            
+    let url = sprintf @"%s/api/firmware" tagServer
+    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+    
+    match Decode.fromString Firmware.Decoder result with
+    | Error msg -> return failwith msg
+    | Ok firmware ->
+        try
+            if firmware.Version <> ReleaseNotes.Version then
+                let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".zip")
+                printfn "Starting download of %s" firmware.Url
+                do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
+                printfn "Download done."
+                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, System.IO.Path.GetFullPath "./install")
+                System.IO.File.Delete localFileName
+                return Some firmware.Version
+            else
+                return None
+        with
+        | _ -> return None
 }
 
 let executeStartupActions (nodeServices : INodeServices) = task {
@@ -114,7 +140,11 @@ let app = application {
 let x = app.Build()
 x.Start()
 
-printfn "Started"
+printfn "Server started"
+
+let firmwareCheck = checkFirmware()
+firmwareCheck.Wait()
+let r = firmwareCheck.Result
 
 let service = x.Services.GetService(typeof<INodeServices>) :?> INodeServices
 

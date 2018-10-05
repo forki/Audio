@@ -23,17 +23,10 @@ let mp3Server = sprintf "%s/api/audio/mp3" mediaServer
 let xs = [for x  in System.Environment.GetEnvironmentVariables().Keys -> string x ]
 
 let tags = {
-    // Tags = [|
-    //     { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" mp3Server "Celebrate") }
-    //     { Token = "stop"; Action = TagAction.StopMusik }
-    // |]
-    Tags =
-      xs
-      |> Seq.map (fun kv ->
-        let x = System.Environment.GetEnvironmentVariable kv
-        { Token = kv; Action = TagAction.PlayMusik x }
-      ) 
-      |> Seq.toArray
+    Tags = [|
+        { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" mp3Server "Celebrate") }
+        { Token = "stop"; Action = TagAction.StopMusik }
+    |]
 }
 
 let allTags =

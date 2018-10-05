@@ -16,3 +16,4 @@ deploy
 /.ionide/symbolCache.db
 /yarn-error.log
 /src/Client/public
+/pideploy/

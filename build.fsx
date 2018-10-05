@@ -19,6 +19,7 @@ let serverPath = Path.getFullName "./src/Server"
 let piServerPath = Path.getFullName "./src/PiServer"
 let clientPath = Path.getFullName "./src/Client"
 let deployDir = Path.getFullName "./deploy"
+let piDeployDir = Path.getFullName "./pideploy"
 
 
 
@@ -79,7 +80,7 @@ let openBrowser url =
     if result <> 0 then failwithf "opening browser failed"
 
 Target.create "Clean" (fun _ ->
-    Shell.cleanDirs [deployDir]
+    Shell.cleanDirs [deployDir; piDeployDir]
 )
 
 Target.create "InstallClient" (fun _ ->
@@ -144,7 +145,15 @@ Target.create "BundleClient" (fun _ ->
                 FileName = dotnetOpts.DotNetCliPath
                 WorkingDirectory = serverPath
                 Arguments = "publish -c Release -o \"" + Path.getFullName deployDir + "\"" }) TimeSpan.MaxValue
-    if result <> 0 then failwith "Publish failed"
+    if result <> 0 then failwith "Publish Server failed"
+
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = dotnetOpts.DotNetCliPath
+                WorkingDirectory = piServerPath
+                Arguments = "publish -c Release -r linux-arm -o \"" + Path.getFullName piDeployDir + "\"" }) TimeSpan.MaxValue
+    if result <> 0 then failwith "Publish PiServer failed"
 
     let clientDir = deployDir </> "client"
     let publicDir = clientDir </> "public"

@@ -173,7 +173,7 @@ Target.create "TestDockerImage" (fun _ ->
         Process.execSimple (fun info ->
             { info with
                 FileName = "docker"
-                Arguments = sprintf "run -d -p 127.0.0.1:8086:8085 --rm --name %s -it %s/%s" testImageName dockerUser dockerImageName }) TimeSpan.MaxValue
+                Arguments = sprintf "run -d -p 127.0.0.1:8085:8085 --rm --name %s -it %s/%s" testImageName dockerUser dockerImageName }) TimeSpan.MaxValue
     if result <> 0 then failwith "Docker run failed"
 
     System.Threading.Thread.Sleep 5000 |> ignore  // give server some time to start
@@ -182,12 +182,12 @@ Target.create "TestDockerImage" (fun _ ->
     // |> Testing.Expecto.run (fun p -> { p with Parallel = false } )
     // |> ignore
 
-    // let result =
-    //     Process.execSimple (fun info ->
-    //         { info with
-    //             FileName = "docker"
-    //             Arguments = sprintf "stop %s" testImageName }) TimeSpan.MaxValue
-    // if result <> 0 then failwith "Docker stop failed"
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = "docker"
+                Arguments = sprintf "stop %s" testImageName }) TimeSpan.MaxValue
+    if result <> 0 then failwith "Docker stop failed"
 )
 
 Target.create "PrepareRelease" (fun _ ->

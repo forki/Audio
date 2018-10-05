@@ -46,6 +46,8 @@ let stop (nodeServices : INodeServices) = task {
         return r
 }
 
+let mutable currentTask = null
+
 let executeAction (nodeServices : INodeServices) (action:TagAction) =
     match action with
     | TagAction.UnknownTag -> 
@@ -59,8 +61,8 @@ let executeAction (nodeServices : INodeServices) (action:TagAction) =
         }
     | TagAction.PlayMusik url -> 
         task {
-            let! _ = stop nodeServices
-            play nodeServices url |> ignore
+            let! r = stop nodeServices
+            currentTask <- play nodeServices url
             return (sprintf "Playing %s" url)
         }
 

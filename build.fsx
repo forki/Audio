@@ -20,7 +20,7 @@ let piServerPath = Path.getFullName "./src/PiServer"
 let clientPath = Path.getFullName "./src/Client"
 let deployDir = Path.getFullName "./deploy"
 let piDeployDir = Path.getFullName "./pideploy"
-
+let firmwareDeployDir = Path.getFullName "./firmware"
 
 
 let dockerUser = Environment.environVarOrDefault "DockerUser" String.Empty
@@ -80,7 +80,7 @@ let openBrowser url =
     if result <> 0 then failwithf "opening browser failed"
 
 Target.create "Clean" (fun _ ->
-    Shell.cleanDirs [deployDir; piDeployDir]
+    Shell.cleanDirs [deployDir; piDeployDir; firmwareDeployDir]
 )
 
 Target.create "InstallClient" (fun _ ->
@@ -156,8 +156,12 @@ Target.create "BundleClient" (fun _ ->
                 Arguments = "publish -c Release -r linux-arm -o \"" + Path.getFullName piDeployDir + "\"" }) TimeSpan.MaxValue
     if result <> 0 then failwith "Publish PiServer failed"
 
-    !! (piServerPath </> "node_modules/**/*.*") |> Shell.copyFiles piDeployDir
+    !! (piServerPath </> "*.js") |> Shell.copyFiles piDeployDir
+    let targetNodeModules = piDeployDir </> "node_modules"
+    Shell.cleanDirs [targetNodeModules]
+    Shell.copyRecursive (piServerPath </> "node_modules") targetNodeModules true |> ignore
 
+    System.IO.Compression.ZipFile.CreateFromDirectory(piDeployDir, firmwareDeployDir </> (sprintf "PiFirmware.%s.zip" release.NugetVersion))
     let clientDir = deployDir </> "client"
     let publicDir = clientDir </> "public"
     let jsDir = clientDir </> "js"
@@ -166,7 +170,6 @@ Target.create "BundleClient" (fun _ ->
     !! "src/Client/public/**/*.*" |> Shell.copyFiles publicDir
     !! "src/Client/js/**/*.*" |> Shell.copyFiles jsDir
     !! "src/Client/Images/**/*.*" |> Shell.copyFiles imageDir
-
 
     !! "src/Client/*.css" |> Shell.copyFiles clientDir
     "src/Client/index.html" |> Shell.copyFile clientDir
@@ -193,8 +196,6 @@ Target.create "BundleClient" (fun _ ->
     let newcssFile = System.IO.FileInfo(clientDir </> sprintf "landing.%s.css" release.NugetVersion)
     System.IO.File.Move (cssFile.FullName,newcssFile.FullName)
 )
-
-
 
 Target.create "CreateDockerImage" (fun _ ->
     if String.IsNullOrEmpty dockerUser then

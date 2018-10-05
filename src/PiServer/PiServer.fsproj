@@ -13,6 +13,9 @@
         <None Update="play-audio.js">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
+        <None Update="play-audiostream.js">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
         <None Update="cmdmp3.exe">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>

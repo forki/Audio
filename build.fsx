@@ -12,6 +12,9 @@ open Fake.Core
 open Fake.DotNet
 open Fake.IO
 
+open Fake.IO.FileSystemOperators
+open Fake.IO.Globbing.Operators
+
 let serverPath = Path.getFullName "./src/Server"
 let piServerPath = Path.getFullName "./src/PiServer"
 let clientPath = Path.getFullName "./src/Client"
@@ -117,6 +120,31 @@ Target.create "Run" (fun _ ->
 )
 
 
+Target.create "BundleClient" (fun _ ->
+    let dotnetOpts = install.Value (DotNet.Options.Create())
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = dotnetOpts.DotNetCliPath
+                WorkingDirectory = serverPath
+                Arguments = "publish -c Release -o \"" + Path.getFullName deployDir + "\"" }) TimeSpan.MaxValue
+    if result <> 0 then failwith "Publish failed"
+
+    let clientDir = deployDir </> "client"
+    let publicDir = clientDir </> "public"
+    let jsDir = clientDir </> "js"
+    let cssDir = clientDir </> "css"
+    let imageDir = clientDir </> "Images"
+
+    !! "src/Client/public/**/*.*" |> Shell.copyFiles publicDir
+    !! "src/Client/js/**/*.*" |> Shell.copyFiles jsDir
+    !! "src/Client/css/**/*.*" |> Shell.copyFiles cssDir
+    !! "src/Client/Images/**/*.*" |> Shell.copyFiles imageDir
+
+    "src/Client/index.html" |> Shell.copyFile clientDir
+)
+
+
 Target.create "CreateDockerImage" (fun _ ->
     if String.IsNullOrEmpty dockerUser then
         failwithf "docker username not given."
@@ -178,6 +206,7 @@ open Fake.Core.TargetOperators
 "Clean"
     ==> "InstallClient"
     ==> "Build"
+    ==> "BundleClient"
     ==> "CreateDockerImage"
     ==> "PrepareRelease"
     ==> "Deploy"

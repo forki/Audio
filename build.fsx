@@ -17,6 +17,15 @@ let piServerPath = Path.getFullName "./src/PiServer"
 let clientPath = Path.getFullName "./src/Client"
 let deployDir = Path.getFullName "./deploy"
 
+
+
+let dockerUser = Environment.environVarOrDefault "DockerUser" String.Empty
+let dockerPassword = Environment.environVarOrDefault "DockerPassword" String.Empty
+let dockerLoginServer = Environment.environVarOrDefault "DockerLoginServer" String.Empty
+let dockerImageName = Environment.environVarOrDefault "DockerImageName" String.Empty
+
+let release = ReleaseNotes.load "RELEASE_NOTES.md"
+
 let platformTool tool winTool =
     let tool = if Environment.isUnix then tool else winTool
     match Process.tryFindFileOnPath tool with
@@ -108,11 +117,70 @@ Target.create "Run" (fun _ ->
 )
 
 
+Target.create "CreateDockerImage" (fun _ ->
+    if String.IsNullOrEmpty dockerUser then
+        failwithf "docker username not given."
+    if String.IsNullOrEmpty dockerImageName then
+        failwithf "docker image name not given."
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = "docker"
+                UseShellExecute = false
+                Arguments = sprintf "build -t %s/%s ." dockerUser dockerImageName }) TimeSpan.MaxValue
+    if result <> 0 then failwith "Docker build failed"
+)
+
+
+Target.create "PrepareRelease" (fun _ ->
+    Fake.Tools.Git.Branches.checkout "" false "master"
+    Fake.Tools.Git.CommandHelper.directRunGitCommand "" "fetch origin" |> ignore
+    Fake.Tools.Git.CommandHelper.directRunGitCommand "" "fetch origin --tags" |> ignore
+
+    Fake.Tools.Git.Staging.stageAll ""
+    Fake.Tools.Git.Commit.exec "" (sprintf "Bumping version to %O" release.NugetVersion)
+    Fake.Tools.Git.Branches.pushBranch "" "origin" "master"
+
+    let tagName = string release.NugetVersion
+    Fake.Tools.Git.Branches.tag "" tagName
+    Fake.Tools.Git.Branches.pushTag "" "origin" tagName
+
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = "docker"
+                Arguments = sprintf "tag %s/%s %s/%s:%s" dockerUser dockerImageName dockerUser dockerImageName release.NugetVersion}) TimeSpan.MaxValue
+    if result <> 0 then failwith "Docker tag failed"
+)
+
+Target.create "Deploy" (fun _ ->
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = "docker"
+                WorkingDirectory = deployDir
+                Arguments = sprintf "login %s --username \"%s\" --password \"%s\"" dockerLoginServer dockerUser dockerPassword }) TimeSpan.MaxValue
+    if result <> 0 then failwith "Docker login failed"
+
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = "docker"
+                WorkingDirectory = deployDir
+                Arguments = sprintf "push %s/%s" dockerUser dockerImageName }) TimeSpan.MaxValue
+    if result <> 0 then failwith "Docker push failed"
+)
+
+
+
 open Fake.Core.TargetOperators
 
 "Clean"
     ==> "InstallClient"
     ==> "Build"
+    ==> "CreateDockerImage"
+    ==> "PrepareRelease"
+    ==> "Deploy"
 
 "Clean"
     ==> "InstallClient"

@@ -100,7 +100,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     str "Latest Firmware: "
                     (match model.Firmware with
                      | None -> str "Unknown"
-                     | Some fw -> a [ Href fw.URL ] [ str fw.Version ])
+                     | Some fw -> a [ Href fw.Url ] [ str fw.Version ])
                     h2 [] [str "Available Tags"]
                     table [][
                         thead [][

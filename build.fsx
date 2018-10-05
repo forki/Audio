@@ -89,6 +89,7 @@ Target.create "InstallClient" (fun _ ->
     printfn "Yarn version:"
     runTool yarnTool "--version" __SOURCE_DIRECTORY__
     runTool yarnTool "install --frozen-lockfile" __SOURCE_DIRECTORY__
+    try runTool yarnTool "install" piServerPath with _ -> ()
     runDotNet "restore" clientPath
 )
 
@@ -154,6 +155,8 @@ Target.create "BundleClient" (fun _ ->
                 WorkingDirectory = piServerPath
                 Arguments = "publish -c Release -r linux-arm -o \"" + Path.getFullName piDeployDir + "\"" }) TimeSpan.MaxValue
     if result <> 0 then failwith "Publish PiServer failed"
+
+    !! (piServerPath </> "node_modules/**/*.*") |> Shell.copyFiles piDeployDir
 
     let clientDir = deployDir </> "client"
     let publicDir = clientDir </> "public"

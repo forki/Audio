@@ -7,6 +7,8 @@ open ServerCore.Domain
 
 open Thoth.Json.Net
 open ServerCode.Storage
+open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Primitives
 
 
 #if DEBUG
@@ -14,9 +16,6 @@ let publicPath = Path.GetFullPath "../Client/public"
 #else
 let publicPath = Path.GetFullPath "client"
 #endif
-
-let audioPath = Path.GetFullPath "../../audio"
-
 
 let allTagsEndpoint userID =
     pipeline {
@@ -28,12 +27,30 @@ let allTagsEndpoint userID =
         })
     }
 
-let mp3Endpoint fileName =
+
+let audioStream (stream : Stream) : HttpHandler =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        task {
+            let l = int stream.Length
+            stream.Position <- int64 0
+            ctx.Response.Headers.["Content-Length"] <- StringValues(l.ToString())
+            do! stream.CopyToAsync(ctx.Response.Body)
+            return! next ctx
+        }
+
+let mp3Endpoint mediaID =
     pipeline {
         set_header "Content-Type" "audio/mpeg"
         plug (fun next ctx -> task {
-            let file = Path.Combine(audioPath,sprintf "mp3/%s.mp3" fileName)
-            return! ctx.WriteFileStreamAsync true file None None
+            let connection = AzureTable.connection
+            let blobClient = connection.CreateCloudBlobClient()
+            let mediaContainer = blobClient.GetContainerReference("media")
+            let! _x = mediaContainer.CreateIfNotExistsAsync()
+            
+            let blockBlob = mediaContainer.GetBlockBlobReference(mediaID)
+            use stream = new MemoryStream()
+            do! blockBlob.DownloadToStreamAsync(stream)
+            return! Successful.ok (audioStream stream) next ctx
         })
     }
 

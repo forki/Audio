@@ -137,7 +137,7 @@ let configureSerialization (services:IServiceCollection) =
     services.AddNodeServices(fun x -> x.InvocationTimeoutMilliseconds <- 2 * 60 * 60 * 1000)
     services
 
-let app = application {
+let builder = application {
     url ("http://0.0.0.0:" + port.ToString() + "/")
     use_router webApp
     memory_cache
@@ -145,8 +145,8 @@ let app = application {
     use_gzip
 }
 
-let x = app.Build()
-x.Start()
+let app = builder.Build()
+app.Start()
 
 printfn "Server started"
 
@@ -154,10 +154,10 @@ let firmwareCheck = checkFirmware()
 firmwareCheck.Wait()
 let r = firmwareCheck.Result
 
-let service = x.Services.GetService(typeof<INodeServices>) :?> INodeServices
+let service = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-let t = executeStartupActions service
-t.Wait()
-printfn "%A" t.Result
+let startupTask = executeStartupActions service
+startupTask.Wait()
+printfn "%A" startupTask.Result
 
 System.Console.ReadKey() |> ignore

@@ -10,15 +10,12 @@ let port = 8085us
 
 #if DEBUG
 let publicPath = Path.GetFullPath "../Client/public"
-#else
-let publicPath = Path.GetFullPath "client"
-#endif
-
-#if DEBUG
 let mediaServer = sprintf "http://localhost:%d" port
 #else
+let publicPath = Path.GetFullPath "client"
 let mediaServer = "https://audio-hub.azurewebsites.net"
 #endif
+
 
 let audioPath = Path.GetFullPath "../../audio"
 

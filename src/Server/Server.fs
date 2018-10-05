@@ -6,16 +6,22 @@ open FSharp.Control.Tasks.ContextInsensitive
 open Shared
 open Thoth.Json.Net
 
+let port = 8085us
+
 #if DEBUG
 let publicPath = Path.GetFullPath "../Client/public"
 #else
 let publicPath = Path.GetFullPath "client"
 #endif
 
-let audioPath = Path.GetFullPath "../../audio"
-let port = 8085us
-
+#if DEBUG
 let mediaServer = sprintf "http://localhost:%d" port
+#else
+let mediaServer = "https://audio-hub.azurewebsites.net"
+#endif
+
+let audioPath = Path.GetFullPath "../../audio"
+
 let mp3Server = sprintf "%s/api/audio/mp3" mediaServer
 
 let tags = {

@@ -9,7 +9,8 @@ open Thoth.Json.Net
 open Shared
 open System.Threading.Tasks
 
-let tagServer = "http://localhost:8085"
+let tagServer = "https://audio-hub.azurewebsites.net"
+// let tagServer = "http://localhost:8085"
 
 let port = 8086us
 

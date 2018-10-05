@@ -133,14 +133,14 @@ Target.create "BundleClient" (fun _ ->
     let clientDir = deployDir </> "client"
     let publicDir = clientDir </> "public"
     let jsDir = clientDir </> "js"
-    let cssDir = clientDir </> "css"
     let imageDir = clientDir </> "Images"
 
     !! "src/Client/public/**/*.*" |> Shell.copyFiles publicDir
     !! "src/Client/js/**/*.*" |> Shell.copyFiles jsDir
-    !! "src/Client/css/**/*.*" |> Shell.copyFiles cssDir
     !! "src/Client/Images/**/*.*" |> Shell.copyFiles imageDir
 
+
+    !! "src/Client/*.css" |> Shell.copyFiles clientDir
     "src/Client/index.html" |> Shell.copyFile clientDir
 )
 

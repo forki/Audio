@@ -162,6 +162,14 @@ let getTag userID token = task {
         if isNull result then return None else return Some(mapTag result)
 }
 
+
+#if DEBUG
+let getAllTagsForUser userID = task {
+    return
+      [| { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" URLs.mp3Server "Celebrate") }
+         { Token = "stop"; Action = TagAction.StopMusik } |]
+}
+#else
 let getAllTagsForUser userID = task {
     let rec getResults token = task {
         let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userID)
@@ -178,3 +186,5 @@ let getAllTagsForUser userID = task {
     
     return [| for result in results -> mapTag result |] 
 }
+
+#endif

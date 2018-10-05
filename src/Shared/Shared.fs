@@ -85,3 +85,14 @@ type TagList =
         Decode.object (fun get ->
             { Tags = get.Required.Field "Tags" (Decode.array Tag.Decoder) }
         )
+
+module URLs =
+    let serverPort = 8085us
+
+#if DEBUG
+    let mediaServer = sprintf "http://localhost:%d" serverPort
+#else
+    let mediaServer = "https://audio-hub.azurewebsites.net"
+#endif
+
+    let mp3Server = sprintf "%s/api/audio/mp3" mediaServer

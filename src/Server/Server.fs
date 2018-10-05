@@ -8,41 +8,25 @@ open ServerCore.Domain
 open Thoth.Json.Net
 open ServerCode.Storage
 
-let port = 8085us
 
 #if DEBUG
 let publicPath = Path.GetFullPath "../Client/public"
-let mediaServer = sprintf "http://localhost:%d" port
 #else
 let publicPath = Path.GetFullPath "client"
-let mediaServer = "https://audio-hub.azurewebsites.net"
 #endif
 
 let audioPath = Path.GetFullPath "../../audio"
 
-let mp3Server = sprintf "%s/api/audio/mp3" mediaServer
 
 let xs = [for x  in System.Environment.GetEnvironmentVariables().Keys -> string x ]
 
-let tagsFromDB = AzureTable.getAllTagsForUser "sforkmann@gmail.com" |> Async.AwaitTask |> Async.RunSynchronously
-
-let tags = {
-    Tags = [|
-        { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" mp3Server "Celebrate") }
-        { Token = "stop"; Action = TagAction.StopMusik }
-    |] |> Array.append tagsFromDB
-}
-
-let allTags =
-    tags.Tags
-    |> Array.map (fun t -> t.Token,t)
-    |> dict
 
 let allTagsEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let txt = TagList.Encoder tags |> Encode.toString 0
+            let! tags = AzureTable.getAllTagsForUser "sforkmann@gmail.com"
+            let txt = TagList.Encoder { Tags = tags } |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })
     }
@@ -60,9 +44,11 @@ let tagEndpoint token =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
+            
+            let! tag = AzureTable.getTag "sforkmann@gmail.com" token
             let tag =
-                match allTags.TryGetValue token with
-                | true, t -> t
+                match tag with
+                | Some t -> t
                 | _ -> { Token = token; Action = TagAction.UnknownTag }
 
             let txt = Tag.Encoder tag |> Encode.toString 0
@@ -75,7 +61,7 @@ let startupEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let actions = [TagAction.PlayMusik (sprintf @"%s/%s" mp3Server "startup")]
+            let actions = [TagAction.PlayMusik (sprintf @"%s/%s" URLs.mp3Server "startup")]
             
             let txt = 
                 actions
@@ -114,7 +100,7 @@ let configureSerialization (services:IServiceCollection) =
     services
 
 let app = application {
-    url ("http://0.0.0.0:" + port.ToString() + "/")
+    url ("http://0.0.0.0:" + URLs.serverPort.ToString() + "/")
     use_router webApp
     memory_cache
     use_static publicPath

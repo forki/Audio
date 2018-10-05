@@ -117,6 +117,6 @@ let inline getOptionalDoubleProperty (propName:string) (entity: DynamicTableEnti
     with
     | exn -> failwithf "Could not get Double value of property %s for entity %s %s. Message: %s" propName entity.PartitionKey entity.RowKey exn.Message
 
-let storageConnectionString = ""
+let storageConnectionString = System.Environment.GetEnvironmentVariable("SQLAZURECONNSTR_STORAGE")
         
 let getConnectionToAzureStorage() = (AzureConnection storageConnectionString).Connect()

@@ -152,7 +152,24 @@ let saveTag (userID:string) (tag:Tag) =
     tagsTable.ExecuteAsync operation
 
 
-let getTag userID token = task {
+#if DEBUG
+let tags =
+      [| { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" URLs.mp3Server "Celebrate") }
+         { Token = "stop"; Action = TagAction.StopMusik } |]
+
+let getTag (userID:string) token = task {
+    return
+        tags
+        |> Array.tryFind (fun x -> x.Token = token)
+}
+
+
+let getAllTagsForUser (userID:string) = task {
+    return tags
+}
+
+#else
+let getTag (userID:string) token = task {
     let query = TableOperation.Retrieve(userID, token)
     let! r = tagsTable.ExecuteAsync(query)
     if r.HttpStatusCode <> 200 then
@@ -162,15 +179,7 @@ let getTag userID token = task {
         if isNull result then return None else return Some(mapTag result)
 }
 
-
-#if DEBUG
-let getAllTagsForUser userID = task {
-    return
-      [| { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" URLs.mp3Server "Celebrate") }
-         { Token = "stop"; Action = TagAction.StopMusik } |]
-}
-#else
-let getAllTagsForUser userID = task {
+let getAllTagsForUser (userID:string) = task {
     let rec getResults token = task {
         let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userID)
         let! result = tagsTable.ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)

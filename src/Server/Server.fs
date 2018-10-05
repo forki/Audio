@@ -18,14 +18,11 @@ let publicPath = Path.GetFullPath "client"
 let audioPath = Path.GetFullPath "../../audio"
 
 
-let xs = [for x  in System.Environment.GetEnvironmentVariables().Keys -> string x ]
-
-
-let allTagsEndpoint =
+let allTagsEndpoint userID =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let! tags = AzureTable.getAllTagsForUser "sforkmann@gmail.com"
+            let! tags = AzureTable.getAllTagsForUser userID
             let txt = TagList.Encoder { Tags = tags } |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })
@@ -40,12 +37,12 @@ let mp3Endpoint fileName =
         })
     }
 
-let tagEndpoint token =
+let tagEndpoint (userID,token) =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             
-            let! tag = AzureTable.getTag "sforkmann@gmail.com" token
+            let! tag = AzureTable.getTag userID token
             let tag =
                 match tag with
                 | Some t -> t
@@ -90,8 +87,8 @@ let firmwareEndpoint =
 let webApp =
     router {
         getf "/api/audio/mp3/%s" mp3Endpoint
-        getf "/api/tags/%s" tagEndpoint
-        get "/api/alltags" allTagsEndpoint
+        getf "/api/tags/%s/%s" tagEndpoint
+        getf "/api/usertags/%s" allTagsEndpoint
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
     }

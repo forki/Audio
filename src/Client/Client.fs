@@ -32,8 +32,10 @@ let runIn (timeSpan:System.TimeSpan) successMsg errorMsg =
     Cmd.ofPromise p () (fun _ -> successMsg) errorMsg
 
 
+let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f"
+
 let fetchData() = promise {
-    let! res = Fetch.fetch "api/alltags" []
+    let! res = Fetch.fetch (sprintf "api/usertags/%s" userID) []
     let! txt = res.text()
 
     match Decode.fromString TagList.Decoder txt with

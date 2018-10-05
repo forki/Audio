@@ -13,6 +13,9 @@ open System.Threading.Tasks
 let tagServer = "https://audio-hub.azurewebsites.net"
 // let tagServer = "http://localhost:8085"
 
+let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f"
+
+
 let port = 8086us
 
 let isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
@@ -68,7 +71,7 @@ let executeAction (nodeServices : INodeServices) (action:TagAction) =
 
 let executeTag (nodeServices : INodeServices) (tag:string) = task {
     use webClient = new System.Net.WebClient()
-    let tagsUrl tag = sprintf @"%s/api/tags/%s" tagServer tag
+    let tagsUrl tag = sprintf @"%s/api/tags/%s/%s" tagServer userID tag
     let! result = webClient.DownloadStringTaskAsync(System.Uri (tagsUrl tag))
     
     match Decode.fromString Tag.Decoder result with

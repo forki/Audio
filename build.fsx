@@ -34,6 +34,8 @@ let releases =
     
 let release = ReleaseNotes.load "RELEASE_NOTES.md"
 
+let currentFirmware = firmwareDeployDir </> (sprintf "PiFirmware.%s.zip" release.NugetVersion)
+
 let platformTool tool winTool =
     let tool = if Environment.isUnix then tool else winTool
     match Process.tryFindFileOnPath tool with
@@ -161,7 +163,7 @@ Target.create "BundleClient" (fun _ ->
     Shell.cleanDirs [targetNodeModules]
     Shell.copyRecursive (piServerPath </> "node_modules") targetNodeModules true |> ignore
 
-    System.IO.Compression.ZipFile.CreateFromDirectory(piDeployDir, firmwareDeployDir </> (sprintf "PiFirmware.%s.zip" release.NugetVersion))
+    System.IO.Compression.ZipFile.CreateFromDirectory(piDeployDir, currentFirmware)
     let clientDir = deployDir </> "client"
     let publicDir = clientDir </> "public"
     let jsDir = clientDir </> "js"
@@ -173,7 +175,6 @@ Target.create "BundleClient" (fun _ ->
 
     !! "src/Client/*.css" |> Shell.copyFiles clientDir
     "src/Client/index.html" |> Shell.copyFile clientDir
-
     
     let indexFile = System.IO.FileInfo(clientDir </> "index.html")
     let content = System.IO.File.ReadAllText(indexFile.FullName)
@@ -263,7 +264,21 @@ Target.create "PrepareRelease" (fun _ ->
     if result <> 0 then failwith "Docker tag failed"
 )
 
+#load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
+open Octokit
+
+
 Target.create "Deploy" (fun _ ->
+    let user = Environment.environVarOrDefault "GithubUser" String.Empty        
+    let pw = Environment.environVarOrDefault "GithubPassword" String.Empty        
+   
+    // release on github
+    createClient user pw
+    |> createDraft "forki" "Audio" release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
+    |> uploadFile currentFirmware
+    |> releaseDraft
+    |> Async.RunSynchronously
+
     let result =
         Process.execSimple (fun info ->
             { info with

@@ -32,6 +32,9 @@ group Build
     nuget Fake.DotNet.Cli
     nuget Fake.Tools.Git
     nuget Fake.Core.ReleaseNotes
+    nuget Fake.Tools.Octo
+    nuget Octokit
+    github fsharp/FAKE modules/Octokit/Octokit.fsx
     nuget Fake.IO.FileSystem
 
 

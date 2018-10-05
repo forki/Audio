@@ -83,7 +83,7 @@ let firmwareEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let current = { Version = "0.1"; Url = "..."}
+            let current = { Version = ReleaseNotes.Version; Url = "..."}
             
             let txt = Firmware.Encoder current |> Encode.toString 0
             return! setBodyFromString txt next ctx

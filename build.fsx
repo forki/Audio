@@ -27,6 +27,10 @@ let dockerPassword = Environment.environVarOrDefault "DockerPassword" String.Emp
 let dockerLoginServer = Environment.environVarOrDefault "DockerLoginServer" String.Empty
 let dockerImageName = Environment.environVarOrDefault "DockerImageName" String.Empty
 
+let releases = 
+    "RELEASE_NOTES.md"
+    |> System.IO.File.ReadAllLines
+    
 let release = ReleaseNotes.load "RELEASE_NOTES.md"
 
 let platformTool tool winTool =
@@ -145,6 +149,18 @@ Target.create "BundleClient" (fun _ ->
 )
 
 
+Target.create "SetReleaseNotes" (fun _ ->
+    let lines = [
+            "module internal ReleaseNotes"
+            ""
+            (sprintf "let Version = \"%s\"" release.NugetVersion)
+            ""
+            (sprintf "let IsPrerelease = %b" (release.SemVer.PreRelease <> None))
+            ""
+            "let Notes = \"\"\""] @ Array.toList releases @ ["\"\"\""]
+    System.IO.File.WriteAllLines("src/Client/ReleaseNotes.fs",lines)
+)
+
 Target.create "CreateDockerImage" (fun _ ->
     if String.IsNullOrEmpty dockerUser then
         failwithf "docker username not given."
@@ -235,6 +251,7 @@ open Fake.Core.TargetOperators
 
 "Clean"
     ==> "InstallClient"
+    ==> "SetReleaseNotes"
     ==> "Build"
     ==> "BundleClient"
     ==> "CreateDockerImage"

@@ -38,7 +38,7 @@ let audioStream (stream : Stream) : HttpHandler =
             return! next ctx
         }
 
-let mp3Endpoint mediaID =
+let blobMusikEndpoint mediaID =
     pipeline {
         set_header "Content-Type" "audio/mpeg"
         plug (fun next ctx -> task {
@@ -75,7 +75,7 @@ let startupEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let actions = [TagAction.PlayMusik (sprintf @"%s/%s" URLs.mp3Server "startup")]
+            let actions = [TagAction.PlayMusik (sprintf @"%s/%s" URLs.mp3Server "d97cdddb-8a19-4690-8ba5-b8ea43d3641f")]
             
             let txt = 
                 actions
@@ -103,7 +103,7 @@ let firmwareEndpoint =
 
 let webApp =
     router {
-        getf "/api/audio/mp3/%s" mp3Endpoint
+        getf "/api/audio/%s" blobMusikEndpoint
         getf "/api/tags/%s/%s" tagEndpoint
         getf "/api/usertags/%s" allTagsEndpoint
         get "/api/startup" startupEndpoint

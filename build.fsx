@@ -162,8 +162,7 @@ Target.create "BundleClient" (fun _ ->
 
     !! (piServerPath </> "*.js") |> Shell.copyFiles piDeployDir
     let targetNodeModules = piDeployDir </> "node_modules"
-    let audioTarget = deployDir </> "audio"
-    Shell.cleanDirs [targetNodeModules; audioTarget]
+    Shell.cleanDirs [targetNodeModules]
     Shell.copyRecursive (piServerPath </> "node_modules") targetNodeModules true |> ignore
 
     System.IO.Compression.ZipFile.CreateFromDirectory(piDeployDir, currentFirmware)
@@ -172,8 +171,6 @@ Target.create "BundleClient" (fun _ ->
     let jsDir = clientDir </> "js"
     let imageDir = clientDir </> "Images"
 
-    Shell.copyRecursive "audio" audioTarget true |> ignore
-    Directory.delete (audioTarget </> "custom")
     !! "src/Client/public/**/*.*" |> Shell.copyFiles publicDir
     !! "src/Client/js/**/*.*" |> Shell.copyFiles jsDir
     !! "src/Client/Images/**/*.*" |> Shell.copyFiles imageDir

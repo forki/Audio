@@ -10,7 +10,7 @@ open Thoth.Json
 open Thoth.Json.Net
 #endif
 
-open Shared
+open ServerCore.Domain
 open Fulma
 
 type Model = {

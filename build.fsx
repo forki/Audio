@@ -217,37 +217,6 @@ Target.create "CreateDockerImage" (fun _ ->
     if result <> 0 then failwith "Docker build failed"
 )
 
-
-Target.createFinal "KillProcess" (fun _ ->
-    Process.killAllByName "dotnet"
-    Process.killAllByName "dotnet.exe"
-)
-
-Target.create "TestDockerImage" (fun _ ->
-    Target.activateFinal "KillProcess"
-    let testImageName = "test"
-
-    let result =
-        Process.execSimple (fun info ->
-            { info with
-                FileName = "docker"
-                Arguments = sprintf "run -d -p 127.0.0.1:8085:8085 --rm --name %s -it %s/%s" testImageName dockerUser dockerImageName }) TimeSpan.MaxValue
-    if result <> 0 then failwith "Docker run failed"
-
-    System.Threading.Thread.Sleep 5000 |> ignore  // give server some time to start
-
-    // !! clientTestExecutables
-    // |> Testing.Expecto.run (fun p -> { p with Parallel = false } )
-    // |> ignore
-
-    let result =
-        Process.execSimple (fun info ->
-            { info with
-                FileName = "docker"
-                Arguments = sprintf "stop %s" testImageName }) TimeSpan.MaxValue
-    if result <> 0 then failwith "Docker stop failed"
-)
-
 Target.create "PrepareRelease" (fun _ ->
     Fake.Tools.Git.Branches.checkout "" false "master"
     Fake.Tools.Git.CommandHelper.directRunGitCommand "" "fetch origin" |> ignore
@@ -311,7 +280,6 @@ open Fake.Core.TargetOperators
     ==> "Build"
     ==> "BundleClient"
     ==> "CreateDockerImage"
-    ==> "TestDockerImage"
     ==> "PrepareRelease"
     ==> "Deploy"
 

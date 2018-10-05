@@ -3,6 +3,7 @@ module ServerCode.Storage.AzureTable
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open System.Threading.Tasks
+open FSharp.Control.Tasks.ContextInsensitive
 
 type AzureConnection = 
     | AzureConnection of string
@@ -117,11 +118,63 @@ let inline getOptionalDoubleProperty (propName:string) (entity: DynamicTableEnti
     with
     | exn -> failwithf "Could not get Double value of property %s for entity %s %s. Message: %s" propName entity.PartitionKey entity.RowKey exn.Message
 
-#if DEBUG
-let storageConnectionString = "UseDevelopmentStorage=true"
-#else
-let storageConnectionString = System.Environment.GetEnvironmentVariable("CUSTOMCONNSTR_STORAGE")
-#endif
 
+let storageConnectionString = 
+    let str = System.Environment.GetEnvironmentVariable("CUSTOMCONNSTR_STORAGE")
+    if isNull str then
+        "UseDevelopmentStorage=true"
+    else
+        str
         
-let connectionToAzureStorage = (AzureConnection storageConnectionString).Connect()
+let connection = (AzureConnection storageConnectionString).Connect()
+
+let tagsTable = getTable "tags" connection
+
+
+open ServerCore.Domain
+open Thoth.Json.Net
+
+
+let mapTag (entity: DynamicTableEntity) : Tag =
+    { Token = entity.RowKey
+      Action = 
+        match Decode.fromString TagAction.Decoder (getStringProperty "Action" entity) with
+        | Error msg -> failwith msg
+        | Ok action -> action }
+
+
+let saveTag (userID:string) (tag:Tag) =
+    let entity = DynamicTableEntity()
+    entity.PartitionKey <- userID
+    entity.RowKey <- tag.Token
+    entity.Properties.["Action"] <- EntityProperty.GeneratePropertyForString (TagAction.Encoder tag.Action |> Encode.toString 0)
+    let operation = TableOperation.InsertOrReplace entity
+    tagsTable.ExecuteAsync operation
+
+
+let getTag userID token = task {
+    let query = TableOperation.Retrieve(userID, token)
+    let! r = tagsTable.ExecuteAsync(query)
+    if r.HttpStatusCode <> 200 then
+        return None
+    else
+        let result = r.Result :?> DynamicTableEntity
+        if isNull result then return None else return Some(mapTag result)
+}
+
+let getAllTagsForUser userID = task {
+    let rec getResults token = task {
+        let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userID)
+        let! result = tagsTable.ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
+        let token = result.ContinuationToken
+        let result = result |> Seq.toList
+        if isNull token then
+            return result
+        else
+            let! others = getResults token
+            return result @ others }
+
+    let! results = getResults null
+    
+    return [| for result in results -> mapTag result |] 
+}

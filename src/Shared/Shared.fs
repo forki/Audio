@@ -1,4 +1,4 @@
-namespace Shared
+namespace ServerCore.Domain
 
 #if FABLE_COMPILER
 open Thoth.Json

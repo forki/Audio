@@ -3,8 +3,10 @@ open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Saturn
 open FSharp.Control.Tasks.ContextInsensitive
-open Shared
+open ServerCore.Domain
+
 open Thoth.Json.Net
+open ServerCode.Storage
 
 let port = 8085us
 
@@ -22,11 +24,13 @@ let mp3Server = sprintf "%s/api/audio/mp3" mediaServer
 
 let xs = [for x  in System.Environment.GetEnvironmentVariables().Keys -> string x ]
 
+let tagsFromDB = AzureTable.getAllTagsForUser "sforkmann@gmail.com" |> Async.AwaitTask |> Async.RunSynchronously
+
 let tags = {
     Tags = [|
         { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" mp3Server "Celebrate") }
         { Token = "stop"; Action = TagAction.StopMusik }
-    |]
+    |] |> Array.append tagsFromDB
 }
 
 let allTags =

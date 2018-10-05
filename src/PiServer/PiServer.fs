@@ -6,7 +6,8 @@ open FSharp.Control.Tasks.ContextInsensitive
 open Microsoft.AspNetCore.NodeServices
 open System.Runtime.InteropServices
 open Thoth.Json.Net
-open Shared
+open ServerCore.Domain
+
 open System.Threading.Tasks
 
 let tagServer = "https://audio-hub.azurewebsites.net"

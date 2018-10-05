@@ -15,6 +15,7 @@ open Fake.IO
 open Fake.IO.FileSystemOperators
 open Fake.IO.Globbing.Operators
 
+
 let serverPath = Path.getFullName "./src/Server"
 let piServerPath = Path.getFullName "./src/PiServer"
 let clientPath = Path.getFullName "./src/Client"
@@ -270,7 +271,7 @@ open Octokit
 
 Target.create "Deploy" (fun _ ->
     let user = Environment.environVarOrDefault "GithubUser" String.Empty        
-    let pw = Environment.environVarOrDefault "GithubPassword" String.Empty        
+    let pw = Environment.environVarOrDefault "GithubPassword" String.Empty
    
     // release on github
     createClient user pw

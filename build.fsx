@@ -37,6 +37,7 @@ let release = ReleaseNotes.load "RELEASE_NOTES.md"
 
 let currentFirmware = firmwareDeployDir </> (sprintf "PiFirmware.%s.zip" release.NugetVersion)
 
+
 let platformTool tool winTool =
     let tool = if Environment.isUnix then tool else winTool
     match Process.tryFindFileOnPath tool with

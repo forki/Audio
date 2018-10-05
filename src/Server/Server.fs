@@ -46,7 +46,6 @@ let blobMusikEndpoint mediaID =
             let blobClient = connection.CreateCloudBlobClient()
             let mediaContainer = blobClient.GetContainerReference("media")
             let! _x = mediaContainer.CreateIfNotExistsAsync()
-            
             let blockBlob = mediaContainer.GetBlockBlobReference(mediaID)
             use stream = new MemoryStream()
             do! blockBlob.DownloadToStreamAsync(stream)
@@ -75,7 +74,7 @@ let startupEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let actions = [TagAction.PlayMusik (sprintf @"%s/%s" URLs.mp3Server "d97cdddb-8a19-4690-8ba5-b8ea43d3641f")]
+            let actions = [TagAction.PlayBlobMusik (System.Guid "d97cdddb-8a19-4690-8ba5-b8ea43d3641f")]
             
             let txt = 
                 actions

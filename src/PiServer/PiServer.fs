@@ -70,7 +70,7 @@ let executeAction (nodeServices : INodeServices) (action:TagAction) =
     | TagAction.PlayBlobMusik guid -> 
         task {
             let! r = stop nodeServices
-            let url = sprintf "%s/audio/%O" tagServer guid
+            let url = sprintf "%s/api/audio/%O" tagServer guid
             currentTask <- play nodeServices url
             return (sprintf "Playing %s" url)
         }

@@ -16,7 +16,6 @@ let publicPath = Path.GetFullPath "client"
 let mediaServer = "https://audio-hub.azurewebsites.net"
 #endif
 
-
 let audioPath = Path.GetFullPath "../../audio"
 
 let mp3Server = sprintf "%s/api/audio/mp3" mediaServer
@@ -86,7 +85,10 @@ let firmwareEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let current = { Version = ReleaseNotes.Version; Url = "..."}
+            let current = { 
+                Version = ReleaseNotes.Version
+                Url = sprintf "https://github.com/forki/Audio/releases/download/%s/PiFirmware.%s.zip" ReleaseNotes.Version ReleaseNotes.Version
+            }
             
             let txt = Firmware.Encoder current |> Encode.toString 0
             return! setBodyFromString txt next ctx

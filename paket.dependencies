@@ -8,6 +8,7 @@ group Server
     
     nuget Thoth.Json.Net
     nuget Thoth.Json
+    nuget WindowsAzure.Storage
 
 group Client
     storage: none

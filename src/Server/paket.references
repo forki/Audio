@@ -3,3 +3,4 @@ group Server
     Saturn
     Thoth.Json.Net
     Thoth.Json
+    WindowsAzure.Storage

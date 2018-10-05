@@ -22,7 +22,7 @@ let mp3Server = sprintf "%s/api/audio/mp3" mediaServer
 
 let tags = {
     Tags = [|
-        { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" mp3Server "Celebrate") }
+        { Token = "celeb"; Action = TagAction.PlayMusik (System.Environment.GetEnvironmentVariable("SQLAZURECONNSTR_ABC")) } // (sprintf @"%s/custom/%s" mp3Server "Celebrate") }
         { Token = "stop"; Action = TagAction.StopMusik }
     |]
 }

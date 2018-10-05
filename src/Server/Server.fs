@@ -6,7 +6,12 @@ open FSharp.Control.Tasks.ContextInsensitive
 open Shared
 open Thoth.Json.Net
 
+#if DEBUG
 let publicPath = Path.GetFullPath "../Client/public"
+#else
+let publicPath = Path.GetFullPath "client"
+#endif
+
 let audioPath = Path.GetFullPath "../../audio"
 let port = 8085us
 

@@ -124,6 +124,18 @@ Target.create "Run" (fun _ ->
 )
 
 
+Target.create "SetReleaseNotes" (fun _ ->
+    let lines = [
+            "module internal ReleaseNotes"
+            ""
+            (sprintf "let Version = \"%s\"" release.NugetVersion)
+            ""
+            (sprintf "let IsPrerelease = %b" (release.SemVer.PreRelease <> None))
+            ""
+            "let Notes = \"\"\""] @ Array.toList releases @ ["\"\"\""]
+    System.IO.File.WriteAllLines("src/Client/ReleaseNotes.fs",lines)
+)
+
 Target.create "BundleClient" (fun _ ->
     let dotnetOpts = install.Value (DotNet.Options.Create())
     let result =
@@ -146,20 +158,31 @@ Target.create "BundleClient" (fun _ ->
 
     !! "src/Client/*.css" |> Shell.copyFiles clientDir
     "src/Client/index.html" |> Shell.copyFile clientDir
+
+    
+    let indexFile = System.IO.FileInfo(clientDir </> "index.html")
+    let content = System.IO.File.ReadAllText(indexFile.FullName)
+    let newContent = 
+        content
+          .Replace("""<script src="./public/main.js"></script>""",sprintf """<script src="./public/main.%s.js"></script>""" release.NugetVersion)
+          .Replace("""<script src="./public/vendors.js"></script>""",sprintf """<script src="./public/vendors.%s.js"></script>""" release.NugetVersion)
+          .Replace("""<link rel="stylesheet" type="text/css" href="landing.css">""",sprintf """<link rel="stylesheet" type="text/css" href="landing.%s.css">""" release.NugetVersion)
+    System.IO.File.WriteAllText(indexFile.FullName,newContent)   
+
+    let bundleFile = System.IO.FileInfo(publicDir </> "main.js")
+    let newBundleFile = System.IO.FileInfo(publicDir </> sprintf "main.%s.js" release.NugetVersion)
+    System.IO.File.Move (bundleFile.FullName,newBundleFile.FullName)
+
+    let vendorFile = System.IO.FileInfo(publicDir </> "vendors.js")
+    let newVendorFile = System.IO.FileInfo(publicDir </> sprintf "vendors.%s.js" release.NugetVersion)
+    System.IO.File.Move (vendorFile.FullName,newVendorFile.FullName)
+
+    let cssFile = System.IO.FileInfo(clientDir </> "landing.css")
+    let newcssFile = System.IO.FileInfo(clientDir </> sprintf "landing.%s.css" release.NugetVersion)
+    System.IO.File.Move (cssFile.FullName,newcssFile.FullName)
 )
 
 
-Target.create "SetReleaseNotes" (fun _ ->
-    let lines = [
-            "module internal ReleaseNotes"
-            ""
-            (sprintf "let Version = \"%s\"" release.NugetVersion)
-            ""
-            (sprintf "let IsPrerelease = %b" (release.SemVer.PreRelease <> None))
-            ""
-            "let Notes = \"\"\""] @ Array.toList releases @ ["\"\"\""]
-    System.IO.File.WriteAllLines("src/Client/ReleaseNotes.fs",lines)
-)
 
 Target.create "CreateDockerImage" (fun _ ->
     if String.IsNullOrEmpty dockerUser then

@@ -18,7 +18,7 @@ let isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
 
 
 let play (nodeServices : INodeServices) (uri:string) = task {
-    use webClient = new System.Net.WebClient()    
+    use webClient = new System.Net.WebClient()
     if isWindows then
         let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".mp3")
         printfn "Starting download of %s" uri

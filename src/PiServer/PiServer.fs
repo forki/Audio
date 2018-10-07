@@ -67,13 +67,8 @@ let executeAction (nodeServices : INodeServices) (action:TagAction) =
             currentTask <- play nodeServices url
             return (sprintf "Playing %s" url)
         }
-    | TagAction.PlayBlobMusik guid -> 
-        task {
-            let! r = stop nodeServices
-            let url = sprintf "%s/api/audio/%O" tagServer guid
-            currentTask <- play nodeServices url
-            return (sprintf "Playing %s" url)
-        }
+    | TagAction.PlayBlobMusik _ -> 
+        failwithf "Blobs links need to be converted to direct links by the tag server"
 
 
 let executeTag (nodeServices : INodeServices) (tag:string) = task {

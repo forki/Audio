@@ -4,11 +4,11 @@ open Giraffe
 open Saturn
 open FSharp.Control.Tasks.ContextInsensitive
 open ServerCore.Domain
-
+open System.Threading.Tasks
 open Thoth.Json.Net
 open ServerCode.Storage
-open Microsoft.AspNetCore.Http
-open Microsoft.Extensions.Primitives
+open Microsoft.WindowsAzure.Storage.Blob
+open System
 
 
 #if DEBUG
@@ -17,41 +17,45 @@ let publicPath = Path.GetFullPath "../Client/public"
 let publicPath = Path.GetFullPath "client"
 #endif
 
-let allTagsEndpoint userID =
-    pipeline {
-        set_header "Content-Type" "application/json"
-        plug (fun next ctx -> task {
-            let! tags = AzureTable.getAllTagsForUser userID
-            let txt = TagList.Encoder { Tags = tags } |> Encode.toString 0
-            return! setBodyFromString txt next ctx
-        })
-    }
+let getSASMediaLink mediaID =  task {
+    let connection = AzureTable.connection
+    let blobClient = connection.CreateCloudBlobClient()
+    let mediaContainer = blobClient.GetContainerReference("media")
+    let! _x = mediaContainer.CreateIfNotExistsAsync()
+    let blockBlob = mediaContainer.GetBlockBlobReference(mediaID)
+    let policy = SharedAccessBlobPolicy()
+    policy.SharedAccessExpiryTime <- Nullable(DateTimeOffset.UtcNow.AddMinutes 100.)
+    policy.SharedAccessStartTime <- Nullable(DateTimeOffset.UtcNow)
+    policy.Permissions <- SharedAccessBlobPermissions.Read
+    let sas = blockBlob.GetSharedAccessSignature(policy)
+    
+    return blockBlob.Uri.ToString() + sas
+}
 
+let uploadMusik () = task {
+    let connection = AzureTable.connection
+    let mediaID = System.Guid.NewGuid()
 
-let audioStream (stream : Stream) : HttpHandler =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
-        task {
-            let l = int stream.Length
-            stream.Position <- int64 0
-            ctx.Response.Headers.["Content-Length"] <- StringValues(l.ToString())
-            do! stream.CopyToAsync(ctx.Response.Body)
-            return! next ctx
-        }
+    use stream = new MemoryStream()
+    // todo: write to stream
 
-let blobMusikEndpoint mediaID =
-    pipeline {
-        set_header "Content-Type" "audio/mpeg"
-        plug (fun next ctx -> task {
-            let connection = AzureTable.connection
-            let blobClient = connection.CreateCloudBlobClient()
-            let mediaContainer = blobClient.GetContainerReference("media")
-            let! _x = mediaContainer.CreateIfNotExistsAsync()
-            let blockBlob = mediaContainer.GetBlockBlobReference(mediaID)
-            use stream = new MemoryStream()
-            do! blockBlob.DownloadToStreamAsync(stream)
-            return! Successful.ok (audioStream stream) next ctx
-        })
-    }
+    let blobClient = connection.CreateCloudBlobClient()
+    let mediaContainer = blobClient.GetContainerReference "media"
+    let! _ = mediaContainer.CreateIfNotExistsAsync() 
+
+    let blockBlob = mediaContainer.GetBlockBlobReference(mediaID.ToString())
+    blockBlob.Properties.ContentType <- "audio/mpeg"
+    do! blockBlob.UploadFromStreamAsync(stream)
+    return TagAction.PlayBlobMusik mediaID
+}
+
+let mapBlobMusikTag (tag:Tag) = task {
+    match tag.Action with
+    | TagAction.PlayBlobMusik mediaID -> 
+        let! sas = getSASMediaLink(mediaID.ToString())
+        return { tag with Action = TagAction.PlayMusik sas }
+    | _ -> return tag
+}
 
 let tagEndpoint (userID,token) =
     pipeline {
@@ -59,16 +63,31 @@ let tagEndpoint (userID,token) =
         plug (fun next ctx -> task {
             
             let! tag = AzureTable.getTag userID token
-            let tag =
+            let! tag =
                 match tag with
-                | Some t -> t
-                | _ -> { Token = token; Action = TagAction.UnknownTag }
+                | Some t -> mapBlobMusikTag t
+                | _ -> task { return { Token = token; Action = TagAction.UnknownTag } }
 
             let txt = Tag.Encoder tag |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })
     }
 
+
+let allTagsEndpoint userID =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let! tags = AzureTable.getAllTagsForUser userID
+            let! tags =
+                tags
+                |> Array.map mapBlobMusikTag
+                |> Task.WhenAll
+                
+            let txt = TagList.Encoder { Tags = tags } |> Encode.toString 0
+            return! setBodyFromString txt next ctx
+        })
+    }
 
 let startupEndpoint =
     pipeline {
@@ -102,7 +121,6 @@ let firmwareEndpoint =
 
 let webApp =
     router {
-        getf "/api/audio/%s" blobMusikEndpoint
         getf "/api/tags/%s/%s" tagEndpoint
         getf "/api/usertags/%s" allTagsEndpoint
         get "/api/startup" startupEndpoint

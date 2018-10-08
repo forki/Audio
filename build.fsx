@@ -29,10 +29,10 @@ let dockerPassword = Environment.environVarOrDefault "DockerPassword" String.Emp
 let dockerLoginServer = Environment.environVarOrDefault "DockerLoginServer" String.Empty
 let dockerImageName = Environment.environVarOrDefault "DockerImageName" String.Empty
 
-let releases = 
+let releases =
     "RELEASE_NOTES.md"
     |> System.IO.File.ReadAllLines
-    
+
 let release = ReleaseNotes.load "RELEASE_NOTES.md"
 
 let currentFirmware = firmwareDeployDir </> (sprintf "PiFirmware.%s.zip" release.NugetVersion)
@@ -160,10 +160,8 @@ Target.create "BundleClient" (fun _ ->
                 Arguments = "publish -c Release -r linux-arm -o \"" + Path.getFullName piDeployDir + "\"" }) TimeSpan.MaxValue
     if result <> 0 then failwith "Publish PiServer failed"
 
+    !! (piServerPath </> "*.json") |> Shell.copyFiles piDeployDir
     !! (piServerPath </> "*.js") |> Shell.copyFiles piDeployDir
-    let targetNodeModules = piDeployDir </> "node_modules"
-    Shell.cleanDirs [targetNodeModules]
-    Shell.copyRecursive (piServerPath </> "node_modules") targetNodeModules true |> ignore
 
     System.IO.Compression.ZipFile.CreateFromDirectory(piDeployDir, currentFirmware)
     let clientDir = deployDir </> "client"
@@ -177,15 +175,15 @@ Target.create "BundleClient" (fun _ ->
 
     !! "src/Client/*.css" |> Shell.copyFiles clientDir
     "src/Client/index.html" |> Shell.copyFile clientDir
-    
+
     let indexFile = System.IO.FileInfo(clientDir </> "index.html")
     let content = System.IO.File.ReadAllText(indexFile.FullName)
-    let newContent = 
+    let newContent =
         content
           .Replace("""<script src="./public/main.js"></script>""",sprintf """<script src="./public/main.%s.js"></script>""" release.NugetVersion)
           .Replace("""<script src="./public/vendors.js"></script>""",sprintf """<script src="./public/vendors.%s.js"></script>""" release.NugetVersion)
           .Replace("""<link rel="stylesheet" type="text/css" href="landing.css">""",sprintf """<link rel="stylesheet" type="text/css" href="landing.%s.css">""" release.NugetVersion)
-    System.IO.File.WriteAllText(indexFile.FullName,newContent)   
+    System.IO.File.WriteAllText(indexFile.FullName,newContent)
 
     let bundleFile = System.IO.FileInfo(publicDir </> "main.js")
     let newBundleFile = System.IO.FileInfo(publicDir </> sprintf "main.%s.js" release.NugetVersion)
@@ -240,9 +238,9 @@ open Octokit
 
 
 Target.create "Deploy" (fun _ ->
-    let user = Environment.environVarOrDefault "GithubUser" String.Empty        
+    let user = Environment.environVarOrDefault "GithubUser" String.Empty
     let pw = Environment.environVarOrDefault "GithubPassword" String.Empty
-   
+
     // release on github
     createClient user pw
     |> createDraft "forki" "Audio" release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes

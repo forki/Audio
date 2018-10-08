@@ -7,7 +7,6 @@ open Microsoft.AspNetCore.NodeServices
 open System.Runtime.InteropServices
 open Thoth.Json.Net
 open ServerCore.Domain
-
 open System.Threading.Tasks
 open System.Threading
 open System.Diagnostics
@@ -199,8 +198,20 @@ let rec rfidLoop() = task {
     else
         printfn "Read: %s" token
         running <- executeTag nodeServices token
-        printfn "Waiting for remove"
-        let! _ = nodeServices.InvokeExportAsync<string>("./read-tag", "removed", token)
+        let mutable waiting = true
+        while waiting do
+            do! Task.Delay(TimeSpan.FromSeconds 0.5)
+            if running.IsCompleted then
+                let processes = Process.GetProcessesByName("omxplayer.bin")
+                for p in processes do
+                    if p.HasExited then
+                        printfn "omxplayer was shut down"
+                        waiting <- false
+            let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
+            if newToken <> token then
+                printfn "tag was removed from reader"
+                waiting <- false
+        
         let! _ = stop nodeServices
         ()
     return! rfidLoop()

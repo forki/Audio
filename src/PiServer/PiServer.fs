@@ -50,8 +50,8 @@ let stop (nodeServices : INodeServices) = task {
         let! r = nodeServices.InvokeExportAsync<string>("./play-audio", "stop")
         return r
     else
-        let! r = nodeServices.InvokeExportAsync<string>("./play-audiostream", "stop")
-        return r
+        //let! r = nodeServices.InvokeExportAsync<string>("./play-audiostream", "stop")
+        return "Test"
 }
 
 let mutable currentTask = null

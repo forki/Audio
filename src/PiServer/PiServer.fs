@@ -34,9 +34,15 @@ let play (nodeServices : INodeServices) (uri:string) = task {
         return r
     else
         printfn "Playing %s" uri
-        let! r = nodeServices.InvokeExportAsync<string>( "./play-audiostream", "play", uri)
+        let p = new System.Diagnostics.Process()
+        let s = System.Diagnostics.ProcessStartInfo()
+        s.FileName <- "omxplayer"
+        s.Arguments <- uri
+        p.StartInfo <- s
+        let r = p.Start()
+        //let! r = nodeServices.InvokeExportAsync<string>( "./play-audiostream", "play", uri)
         printfn "Done playing %s" uri
-        return r
+        return "Done"
 }
 
 let stop (nodeServices : INodeServices) = task {

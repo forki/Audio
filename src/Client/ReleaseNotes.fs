@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "0.1.10"
+let Version = "0.1.11"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 0.1.10 - 2018-10-08
+## 0.1.11 - 2018-10-08
 
 * Stream from Azure Blob Storage
 

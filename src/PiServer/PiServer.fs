@@ -2,7 +2,7 @@ open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Saturn
 open FSharp.Control.Tasks.ContextInsensitive
-
+open System
 open Microsoft.AspNetCore.NodeServices
 open System.Runtime.InteropServices
 open Thoth.Json.Net
@@ -10,6 +10,7 @@ open ServerCore.Domain
 
 open System.Threading.Tasks
 open System.Threading
+open System.Diagnostics
 
 let tagServer = "https://audio-hub.azurewebsites.net"
 // let tagServer = "http://localhost:8085"
@@ -21,6 +22,7 @@ let port = 8086us
 
 let isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
 let cts = new CancellationTokenSource()
+let mutable runningProcess = null
 
 let play (nodeServices : INodeServices) (cancellationToken:CancellationToken) (uri:string) = task {
     use webClient = new System.Net.WebClient()
@@ -36,6 +38,7 @@ let play (nodeServices : INodeServices) (cancellationToken:CancellationToken) (u
     else
         printfn "Playing %s" uri
         let p = new System.Diagnostics.Process()
+        runningProcess <- p
         let s = System.Diagnostics.ProcessStartInfo()
         p.EnableRaisingEvents <- true
         let tcs = new TaskCompletionSource<obj>()
@@ -61,6 +64,12 @@ let stop (nodeServices : INodeServices) = task {
         let! r = nodeServices.InvokeExportAsync<string>("./play-audio", "stop")
         return r
     else
+        printfn "trying to kill"
+        let processes = Process.GetProcessesByName("omxplayer.bin")
+        for p in processes do
+            if not p.HasExited then
+                printfn "kill"
+                p.Kill()
         cts.Cancel()
         return "Test"
 }
@@ -178,15 +187,28 @@ let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServi
 let startupTask = executeStartupActions nodeServices
 startupTask.Wait()
 
+printfn "%A" startupTask.Result
+
+let mutable running = null
+let rec rfidLoop() = task {
+    let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
+    
+    if String.IsNullOrEmpty token then
+        let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
+        ()
+    else
+        printfn "Read: %s" token
+        running <- executeTag nodeServices token
+        printfn "Waiting for remove"
+        let! _ = nodeServices.InvokeExportAsync<string>("./read-tag", "removed", token)
+        let! _ = stop nodeServices
+        ()
+    return! rfidLoop()
+}
+
 if isWindows then
     ()
 else
-    let r = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
-    r.Wait()
-    let token = r.Result
-    let r = executeTag nodeServices token
-    r.Wait()
-
-printfn "%A" startupTask.Result
+    rfidLoop().Wait()    
 
 System.Console.ReadKey() |> ignore

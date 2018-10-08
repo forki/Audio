@@ -1,6 +1,6 @@
 # Release Notes
 
-## 0.1.9 - 2018-10-08
+## 0.1.10 - 2018-10-08
 
 * Stream from Azure Blob Storage
 

@@ -181,7 +181,7 @@ startupTask.Wait()
 if isWindows then
     ()
 else
-    let r = nodeServices.InvokeExportAsync<string>("./read-tag", "play", "ard")
+    let r = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
     r.Wait()
     let token = r.Result
     let r = executeTag nodeServices token

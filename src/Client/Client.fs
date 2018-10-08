@@ -18,13 +18,13 @@ type Model = {
     Tags: TagList 
     IsUploading :bool
     Message : string
-    FileName: string option
+    File: obj option
     Firmware: Firmware option
 }
 
 type Msg =
 | FetchTags
-| FileNameChanged of string
+| FileNameChanged of obj
 | Upload
 | FileUploaded of Tag
 | UploadFailed of exn
@@ -88,7 +88,7 @@ let init () : Model * Cmd<Msg> =
     let initialModel = {
         Tags = { Tags = [||] }
         Firmware = None
-        FileName = None
+        File = None
         IsUploading = false
         Message = ""
     }
@@ -118,8 +118,8 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | TagsLoaded _  ->
         model, Cmd.ofMsg FetchTags
 
-    | FileNameChanged fileName ->
-        { model with FileName = Some fileName }, Cmd.none
+    | FileNameChanged file ->
+        { model with File = Some file }, Cmd.none
 
     | FileUploaded tag ->
         { model with IsUploading = false }, Cmd.none
@@ -128,10 +128,10 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with IsUploading = false; Message = exn.Message }, Cmd.none
     
     | Upload ->
-        match model.FileName with
+        match model.File with
         | None -> model, Cmd.none
         | Some fileName ->
-            { model with FileName = None; IsUploading = true; Message = "Upload started" }, Cmd.ofPromise uploadFile fileName FileUploaded UploadFailed
+            { model with File = None; IsUploading = true; Message = "Upload started" }, Cmd.ofPromise uploadFile fileName FileUploaded UploadFailed
  
     | Err exn ->
         { model with Message = exn.Message }, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
@@ -141,6 +141,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Fable.Import
+open Fable.Core.JsInterop
 
 
 let view (model : Model) (dispatch : Msg -> unit) =
@@ -150,7 +151,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                 [ div [] [
                     input [ 
                         Type "file"
-                        OnChange (fun x -> FileNameChanged x.Value |> dispatch) ] 
+                        OnChange (fun x -> FileNameChanged (!!x.target?files?(0)) |> dispatch) ] 
                     br []
                     button [ OnClick (fun _ -> dispatch Upload) ] [str "Upload"]
                     br []

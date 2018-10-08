@@ -65,10 +65,6 @@ let uploadEndpoint =
             else
                 let formFeature = ctx.Features.Get<Microsoft.AspNetCore.Http.Features.IFormFeature>()
                 let! form = formFeature.ReadFormAsync(CancellationToken.None)
-                printfn "%A" form.Keys
-                match form.TryGetValue "file" with
-                | true, x -> printfn "%A" x
-                | _ -> failwith "no file"
                 let file = form.Files.[0]
                 use stream = file.OpenReadStream()
                 let! tagAction = uploadMusik stream

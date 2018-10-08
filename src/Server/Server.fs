@@ -113,7 +113,8 @@ let startupEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let actions = [TagAction.PlayBlobMusik (System.Guid "d97cdddb-8a19-4690-8ba5-b8ea43d3641f")]
+            let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
+            let actions = [TagAction.PlayMusik sas]
             
             let txt = 
                 actions

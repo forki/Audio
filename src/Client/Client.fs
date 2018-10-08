@@ -122,7 +122,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with File = Some file }, Cmd.none
 
     | FileUploaded tag ->
-        { model with IsUploading = false }, Cmd.none
+        { model with IsUploading = false; Message = "Done" }, Cmd.none
 
     | UploadFailed exn ->
         { model with IsUploading = false; Message = exn.Message }, Cmd.none

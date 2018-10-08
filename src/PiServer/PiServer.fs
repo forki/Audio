@@ -177,6 +177,14 @@ let service = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
 let startupTask = executeStartupActions service
 startupTask.Wait()
+
+if isWindows then
+    ()
+else
+    let r = service.InvokeExportAsync<string>("./read-tag", "play", "ard")
+    r.Wait()
+
+
 printfn "%A" startupTask.Result
 
 System.Console.ReadKey() |> ignore

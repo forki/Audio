@@ -9,15 +9,8 @@
         <Compile Include="..\Shared\Shared.fs" />
         <Compile Include="PiServer.fs" />
     </ItemGroup>
-    
     <ItemGroup>
-        <None Update="play-audio.js">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
         <None Update="read-tag.js">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-        <None Update="cmdmp3.exe">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
     </ItemGroup>

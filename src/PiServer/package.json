@@ -1,7 +1,6 @@
 {
     "private": true,
     "dependencies": {
-        "play-sound": "1.1.2",
         "mfrc522-rpi": "1.1.0"
     }
 }

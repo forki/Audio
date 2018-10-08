@@ -19,63 +19,48 @@ let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f"
 
 let port = 8086us
 
-let isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
 let cts = new CancellationTokenSource()
 let mutable runningProcess = null
 
-let play (nodeServices : INodeServices) (cancellationToken:CancellationToken) (uri:string) = task {
-    use webClient = new System.Net.WebClient()
-    if isWindows then
-        let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".mp3")
-        printfn "Starting download of %s" uri
-        do! webClient.DownloadFileTaskAsync(uri,localFileName)
-        printfn "Playing %s" localFileName
-        let! r = nodeServices.InvokeExportAsync<string>("./play-audio", "play", localFileName)
-        printfn "Done playing %s" localFileName
-        System.IO.File.Delete localFileName
-        return r
-    else
-        printfn "Playing %s" uri
-        let p = new System.Diagnostics.Process()
-        runningProcess <- p
-        let s = System.Diagnostics.ProcessStartInfo()
-        p.EnableRaisingEvents <- true
-        let tcs = new TaskCompletionSource<obj>()
-        let handler = System.EventHandler(fun _ args ->
-            tcs.TrySetResult(null) |> ignore
-        )
+let play  (cancellationToken:CancellationToken) (uri:string) = task {
+    printfn "Playing %s" uri
+    let p = new System.Diagnostics.Process()
+    runningProcess <- p
+    let startInfo = System.Diagnostics.ProcessStartInfo()
+    p.EnableRaisingEvents <- true
+    let tcs = new TaskCompletionSource<obj>()
+    let handler = System.EventHandler(fun _ args ->
+        tcs.TrySetResult(null) |> ignore
+    )
 
-        p.Exited.AddHandler handler
-        try
-            cancellationToken.Register(fun () -> tcs.SetCanceled()) |> ignore
-            s.FileName <- "omxplayer"
-            s.Arguments <- uri
-            p.StartInfo <- s
-            let _ = p.Start()
-            let! _ = tcs.Task
-            return "Started"
-        finally
-            p.Exited.RemoveHandler handler
+    p.Exited.AddHandler handler
+    try
+        cancellationToken.Register(fun () -> tcs.SetCanceled()) |> ignore
+        startInfo.FileName <- "omxplayer"
+        startInfo.Arguments <- uri
+        p.StartInfo <- startInfo
+        let _ = p.Start()
+        let! _ = tcs.Task
+        return "Started"
+    finally
+        p.Exited.RemoveHandler handler
 }
 
-let stop (nodeServices : INodeServices) = task {
-    if isWindows then
-        let! r = nodeServices.InvokeExportAsync<string>("./play-audio", "stop")
-        return r
-    else
-        printfn "trying to kill"
-        let processes = Process.GetProcessesByName("omxplayer.bin")
-        for p in processes do
-            if not p.HasExited then
-                printfn "kill"
-                p.Kill()
-        cts.Cancel()
-        return "Test"
+let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
+
+let stop() = task {
+    printfn "trying to kill"
+    for p in getMusikPlayerProcesses() do
+        if not p.HasExited then
+            printfn "kill"
+            p.Kill()
+    cts.Cancel()
+    return "Test"
 }
 
 let mutable currentTask = null
 
-let executeAction (nodeServices : INodeServices) (action:TagAction) =
+let executeAction (action:TagAction) =
     match action with
     | TagAction.UnknownTag ->
         task {
@@ -83,27 +68,27 @@ let executeAction (nodeServices : INodeServices) (action:TagAction) =
         }
     | TagAction.StopMusik ->
         task {
-            let! _ = stop nodeServices
+            let! _ = stop()
             return "Stopped"
         }
     | TagAction.PlayMusik url ->
         task {
-            let! r = stop nodeServices
-            currentTask <- play nodeServices cts.Token url
+            let! r = stop()
+            currentTask <- play cts.Token url
             return (sprintf "Playing %s" url)
         }
     | TagAction.PlayBlobMusik _ ->
         failwithf "Blobs links need to be converted to direct links by the tag server"
 
 
-let executeTag (nodeServices : INodeServices) (tag:string) = task {
+let executeTag (tag:string) = task {
     use webClient = new System.Net.WebClient()
     let tagsUrl tag = sprintf @"%s/api/tags/%s/%s" tagServer userID tag
     let! result = webClient.DownloadStringTaskAsync(System.Uri (tagsUrl tag))
 
     match Decode.fromString Tag.Decoder result with
     | Error msg -> return failwith msg
-    | Ok tag -> return! executeAction nodeServices tag.Action
+    | Ok tag -> return! executeAction tag.Action
 }
 
 let checkFirmware () = task {
@@ -138,7 +123,7 @@ let checkFirmware () = task {
         | _ -> return None
 }
 
-let executeStartupActions (nodeServices : INodeServices) = task {
+let executeStartupActions () = task {
     use webClient = new System.Net.WebClient()
     let url = sprintf @"%s/api/startup" tagServer
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
@@ -146,17 +131,14 @@ let executeStartupActions (nodeServices : INodeServices) = task {
     match Decode.fromString (Decode.list TagAction.Decoder) result with
     | Error msg -> return failwith msg
     | Ok actions ->
-        return!
-            actions
-            |> List.map (executeAction nodeServices)
-            |> Task.WhenAll
+        for t in actions do
+            let! _ = executeAction t
+            ()
 }
 
 let webApp = router {
-    getf "/execute/%s" (fun token next ctx -> task {
-        let nodeServices = ctx.RequestServices.GetService(typeof<INodeServices>) :?> INodeServices
-        let! r = executeTag nodeServices token
-        return! text r next ctx
+    get "/version" (fun next ctx -> task {
+        return! text ReleaseNotes.Version next ctx
     })
 }
 
@@ -181,45 +163,39 @@ let firmwareCheck = checkFirmware()
 firmwareCheck.Wait()
 let r = firmwareCheck.Result
 
-let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
-
-let startupTask = executeStartupActions nodeServices
+let startupTask = executeStartupActions()
 startupTask.Wait()
 
 printfn "%A" startupTask.Result
-
 let mutable running = null
-let rec rfidLoop() = task {
-    let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
-    
-    if String.IsNullOrEmpty token then
-        let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
-        ()
-    else
-        printfn "Read: %s" token
-        running <- executeTag nodeServices token
-        let mutable waiting = true
-        while waiting do
-            do! Task.Delay(TimeSpan.FromSeconds 0.5)
-            if running.IsCompleted then
-                let processes = Process.GetProcessesByName("omxplayer.bin")
-                for p in processes do
-                    if p.HasExited then
-                        printfn "omxplayer was shut down"
-                        waiting <- false
-            let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
-            if newToken <> token then
-                printfn "tag was removed from reader"
-                waiting <- false
+
+let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
+
+let rfidLoop() = task {
+    while true do
+        let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
         
-        let! _ = stop nodeServices
-        ()
-    return! rfidLoop()
+        if String.IsNullOrEmpty token then
+            let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
+            ()
+        else
+            printfn "Read: %s" token
+            running <- executeTag token
+            let mutable waiting = true
+            while waiting do
+                do! Task.Delay(TimeSpan.FromSeconds 0.5)
+                if running.IsCompleted then
+                    for p in getMusikPlayerProcesses() do
+                        if p.HasExited then
+                            printfn "omxplayer was shut down"
+                            waiting <- false
+                let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
+                if newToken <> token then
+                    printfn "tag was removed from reader"
+                    waiting <- false
+            
+            let! _ = stop()
+            ()
 }
 
-if isWindows then
-    ()
-else
-    rfidLoop().Wait()    
-
-System.Console.ReadKey() |> ignore
+rfidLoop().Wait()

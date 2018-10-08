@@ -145,9 +145,9 @@ let executeStartupActions (nodeServices : INodeServices) = task {
 }
 
 let webApp = router {
-    getf "/execute/%s" (fun tag next ctx -> task {
+    getf "/execute/%s" (fun token next ctx -> task {
         let nodeServices = ctx.RequestServices.GetService(typeof<INodeServices>) :?> INodeServices
-        let! r = executeTag nodeServices tag
+        let! r = executeTag nodeServices token
         return! text r next ctx
     })
 }
@@ -173,17 +173,19 @@ let firmwareCheck = checkFirmware()
 firmwareCheck.Wait()
 let r = firmwareCheck.Result
 
-let service = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
+let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-let startupTask = executeStartupActions service
+let startupTask = executeStartupActions nodeServices
 startupTask.Wait()
 
 if isWindows then
     ()
 else
-    let r = service.InvokeExportAsync<string>("./read-tag", "play", "ard")
+    let r = nodeServices.InvokeExportAsync<string>("./read-tag", "play", "ard")
     r.Wait()
-
+    let token = r.Result
+    let r = executeTag nodeServices token
+    r.Wait()
 
 printfn "%A" startupTask.Result
 

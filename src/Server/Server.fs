@@ -9,6 +9,7 @@ open Thoth.Json.Net
 open ServerCode.Storage
 open Microsoft.WindowsAzure.Storage.Blob
 open System
+open System.Threading
 
 
 #if DEBUG
@@ -32,12 +33,9 @@ let getSASMediaLink mediaID =  task {
     return blockBlob.Uri.ToString() + sas
 }
 
-let uploadMusik () = task {
+let uploadMusik (stream:Stream) = task {
     let connection = AzureTable.connection
     let mediaID = System.Guid.NewGuid()
-
-    use stream = new MemoryStream()
-    // todo: write to stream
 
     let blobClient = connection.CreateCloudBlobClient()
     let mediaContainer = blobClient.GetContainerReference "media"
@@ -49,6 +47,7 @@ let uploadMusik () = task {
     return TagAction.PlayBlobMusik mediaID
 }
 
+
 let mapBlobMusikTag (tag:Tag) = task {
     match tag.Action with
     | TagAction.PlayBlobMusik mediaID -> 
@@ -56,6 +55,32 @@ let mapBlobMusikTag (tag:Tag) = task {
         return { tag with Action = TagAction.PlayMusik sas }
     | _ -> return tag
 }
+
+let uploadEndpoint =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            if not ctx.Request.HasFormContentType then
+                return! RequestErrors.BAD_REQUEST "bad request" next ctx
+            else
+                let formFeature = ctx.Features.Get<Microsoft.AspNetCore.Http.Features.IFormFeature>()
+                let! form = formFeature.ReadFormAsync(CancellationToken.None)
+                printfn "%A" form.Keys
+                match form.TryGetValue "file" with
+                | true, x -> printfn "%A" x
+                | _ -> failwith "no file"
+                let file = form.Files.[0]
+                use stream = file.OpenReadStream()
+                let! tagAction = uploadMusik stream
+                let tag = { Token = System.Guid.NewGuid().ToString(); Action = tagAction }
+                let! saved = AzureTable.saveTag "temp" tag
+                let! tag = mapBlobMusikTag tag
+                let txt = Tag.Encoder tag |> Encode.toString 0
+                return! setBodyFromString txt next ctx
+        })
+    }
+
+
 
 let tagEndpoint (userID,token) =
     pipeline {
@@ -72,7 +97,6 @@ let tagEndpoint (userID,token) =
             return! setBodyFromString txt next ctx
         })
     }
-
 
 let allTagsEndpoint userID =
     pipeline {
@@ -123,6 +147,7 @@ let webApp =
     router {
         getf "/api/tags/%s/%s" tagEndpoint
         getf "/api/usertags/%s" allTagsEndpoint
+        post "/api/upload" uploadEndpoint
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
     }

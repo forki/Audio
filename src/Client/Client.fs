@@ -12,10 +12,12 @@ open Thoth.Json.Net
 
 open ServerCore.Domain
 open Fulma
+open Fable.PowerPack.Fetch
 
 type Model = {
     Tags: TagList 
     IsUploading :bool
+    Message : string
     FileName: string option
     Firmware: Firmware option
 }
@@ -60,7 +62,18 @@ let fetchFirmware() = promise {
 
 
 let uploadFile (fileName) = promise {
-    let! res = Fetch.fetch "api/upload" []
+    let formData = Fable.Import.Browser.FormData.Create()
+    formData.append("file",fileName)
+
+    let props = 
+        [ RequestProperties.Method HttpMethod.POST
+          Fetch.requestHeaders [
+            // HttpRequestHeaders.Authorization ("Bearer " + model.User.Token)
+            //HttpRequestHeaders.ContentType "multipart/form-data"
+             ]
+          RequestProperties.Body (unbox formData) ]
+
+    let! res = Fetch.fetch "api/upload" props
     let! txt = res.text()
 
     match Decode.fromString Tag.Decoder txt with
@@ -77,6 +90,7 @@ let init () : Model * Cmd<Msg> =
         Firmware = None
         FileName = None
         IsUploading = false
+        Message = ""
     }
 
     initialModel, 
@@ -110,17 +124,17 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | FileUploaded tag ->
         { model with IsUploading = false }, Cmd.none
 
-    | UploadFailed _ ->
-        { model with IsUploading = false }, Cmd.none
+    | UploadFailed exn ->
+        { model with IsUploading = false; Message = exn.Message }, Cmd.none
     
     | Upload ->
         match model.FileName with
         | None -> model, Cmd.none
         | Some fileName ->
-            { model with FileName = None; IsUploading = true }, Cmd.ofPromise uploadFile fileName FileUploaded UploadFailed
+            { model with FileName = None; IsUploading = true; Message = "Upload started" }, Cmd.ofPromise uploadFile fileName FileUploaded UploadFailed
  
-    | Err _ ->
-        model, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
+    | Err exn ->
+        { model with Message = exn.Message }, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
         
 
 
@@ -128,15 +142,6 @@ open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Fable.Import
 
-let [<Literal>] ENTER_KEY = 13.
-
-let onEnter msg dispatch =
-    OnKeyDown (fun (ev:React.KeyboardEvent) ->
-        match ev with 
-        | _ when ev.keyCode = ENTER_KEY ->
-            ev.preventDefault()
-            dispatch msg
-        | _ -> ())
 
 let view (model : Model) (dispatch : Msg -> unit) =
     Hero.hero [ Hero.Color IsPrimary; Hero.IsFullHeight ]
@@ -145,8 +150,13 @@ let view (model : Model) (dispatch : Msg -> unit) =
                 [ div [] [
                     input [ 
                         Type "file"
-                        OnChange (fun x -> FileNameChanged x.Value |> dispatch)
-                        onEnter Upload dispatch ] 
+                        OnChange (fun x -> FileNameChanged x.Value |> dispatch) ] 
+                    br []
+                    button [ OnClick (fun _ -> dispatch Upload) ] [str "Upload"]
+                    br []
+                    str "Message: "
+                    str model.Message
+                    br []
                     br []
                     str "Latest Firmware: "
                     (match model.Firmware with

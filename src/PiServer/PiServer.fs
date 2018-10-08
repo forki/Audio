@@ -9,6 +9,7 @@ open Thoth.Json.Net
 open ServerCore.Domain
 
 open System.Threading.Tasks
+open System.Threading
 
 let tagServer = "https://audio-hub.azurewebsites.net"
 // let tagServer = "http://localhost:8085"
@@ -19,9 +20,9 @@ let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f"
 let port = 8086us
 
 let isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+let cts = new CancellationTokenSource()
 
-
-let play (nodeServices : INodeServices) (uri:string) = task {
+let play (nodeServices : INodeServices) (cancellationToken:CancellationToken) (uri:string) = task {
     use webClient = new System.Net.WebClient()
     if isWindows then
         let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".mp3")
@@ -36,13 +37,23 @@ let play (nodeServices : INodeServices) (uri:string) = task {
         printfn "Playing %s" uri
         let p = new System.Diagnostics.Process()
         let s = System.Diagnostics.ProcessStartInfo()
-        s.FileName <- "omxplayer"
-        s.Arguments <- uri
-        p.StartInfo <- s
-        let r = p.Start()
-        //let! r = nodeServices.InvokeExportAsync<string>( "./play-audiostream", "play", uri)
-        printfn "Done playing %s" uri
-        return "Done"
+        p.EnableRaisingEvents <- true
+        let tcs = new TaskCompletionSource<obj>()
+        let handler = System.EventHandler(fun _ args ->
+            tcs.TrySetResult(null) |> ignore
+        )
+
+        p.Exited.AddHandler handler
+        try
+            cancellationToken.Register(fun () -> tcs.SetCanceled()) |> ignore
+            s.FileName <- "omxplayer"
+            s.Arguments <- uri
+            p.StartInfo <- s
+            let _ = p.Start()
+            let! _ = tcs.Task
+            return "Started"
+        finally
+            p.Exited.RemoveHandler handler
 }
 
 let stop (nodeServices : INodeServices) = task {
@@ -50,7 +61,7 @@ let stop (nodeServices : INodeServices) = task {
         let! r = nodeServices.InvokeExportAsync<string>("./play-audio", "stop")
         return r
     else
-        //let! r = nodeServices.InvokeExportAsync<string>("./play-audiostream", "stop")
+        cts.Cancel()
         return "Test"
 }
 
@@ -58,22 +69,22 @@ let mutable currentTask = null
 
 let executeAction (nodeServices : INodeServices) (action:TagAction) =
     match action with
-    | TagAction.UnknownTag -> 
-        task { 
+    | TagAction.UnknownTag ->
+        task {
             return "Unknown Tag"
         }
-    | TagAction.StopMusik -> 
+    | TagAction.StopMusik ->
         task {
             let! _ = stop nodeServices
             return "Stopped"
         }
-    | TagAction.PlayMusik url -> 
+    | TagAction.PlayMusik url ->
         task {
             let! r = stop nodeServices
-            currentTask <- play nodeServices url
+            currentTask <- play nodeServices cts.Token url
             return (sprintf "Playing %s" url)
         }
-    | TagAction.PlayBlobMusik _ -> 
+    | TagAction.PlayBlobMusik _ ->
         failwithf "Blobs links need to be converted to direct links by the tag server"
 
 
@@ -81,7 +92,7 @@ let executeTag (nodeServices : INodeServices) (tag:string) = task {
     use webClient = new System.Net.WebClient()
     let tagsUrl tag = sprintf @"%s/api/tags/%s/%s" tagServer userID tag
     let! result = webClient.DownloadStringTaskAsync(System.Uri (tagsUrl tag))
-    
+
     match Decode.fromString Tag.Decoder result with
     | Error msg -> return failwith msg
     | Ok tag -> return! executeAction nodeServices tag.Action
@@ -89,14 +100,14 @@ let executeTag (nodeServices : INodeServices) (tag:string) = task {
 
 let checkFirmware () = task {
     use webClient = new System.Net.WebClient()
-    System.Net.ServicePointManager.SecurityProtocol <- 
-        System.Net.ServicePointManager.SecurityProtocol ||| 
+    System.Net.ServicePointManager.SecurityProtocol <-
+        System.Net.ServicePointManager.SecurityProtocol |||
           System.Net.SecurityProtocolType.Tls11 |||
           System.Net.SecurityProtocolType.Tls12
-            
+
     let url = sprintf @"%s/api/firmware" tagServer
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
-    
+
     match Decode.fromString Firmware.Decoder result with
     | Error msg -> return failwith msg
     | Ok firmware ->
@@ -123,7 +134,7 @@ let executeStartupActions (nodeServices : INodeServices) = task {
     use webClient = new System.Net.WebClient()
     let url = sprintf @"%s/api/startup" tagServer
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
-    
+
     match Decode.fromString (Decode.list TagAction.Decoder) result with
     | Error msg -> return failwith msg
     | Ok actions ->
@@ -136,7 +147,7 @@ let executeStartupActions (nodeServices : INodeServices) = task {
 let webApp = router {
     getf "/execute/%s" (fun tag next ctx -> task {
         let nodeServices = ctx.RequestServices.GetService(typeof<INodeServices>) :?> INodeServices
-        let! r = executeTag nodeServices tag 
+        let! r = executeTag nodeServices tag
         return! text r next ctx
     })
 }

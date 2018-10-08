@@ -15,11 +15,17 @@ open Fulma
 
 type Model = {
     Tags: TagList 
+    IsUploading :bool
+    FileName: string option
     Firmware: Firmware option
 }
 
 type Msg =
 | FetchTags
+| FileNameChanged of string
+| Upload
+| FileUploaded of Tag
+| UploadFailed of exn
 | TagsLoaded of Result<TagList, exn>
 | FirmwareLoaded of Result<Firmware, exn>
 | Err of exn
@@ -52,6 +58,16 @@ let fetchFirmware() = promise {
     | Error msg -> return failwith msg
 }
 
+
+let uploadFile (fileName) = promise {
+    let! res = Fetch.fetch "api/upload" []
+    let! txt = res.text()
+
+    match Decode.fromString Tag.Decoder txt with
+    | Ok tags -> return tags
+    | Error msg -> return failwith msg
+}
+
 let fetchFirmwareCmd = Cmd.ofPromise fetchFirmware () (Ok >> FirmwareLoaded) (Error >> FirmwareLoaded)
 let fetchTagsCmd = Cmd.ofPromise fetchData () (Ok >> TagsLoaded) (Error >> TagsLoaded)
 
@@ -59,6 +75,8 @@ let init () : Model * Cmd<Msg> =
     let initialModel = {
         Tags = { Tags = [||] }
         Firmware = None
+        FileName = None
+        IsUploading = false
     }
 
     initialModel, 
@@ -86,19 +104,50 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | TagsLoaded _  ->
         model, Cmd.ofMsg FetchTags
 
+    | FileNameChanged fileName ->
+        { model with FileName = Some fileName }, Cmd.none
+
+    | FileUploaded tag ->
+        { model with IsUploading = false }, Cmd.none
+
+    | UploadFailed _ ->
+        { model with IsUploading = false }, Cmd.none
+    
+    | Upload ->
+        match model.FileName with
+        | None -> model, Cmd.none
+        | Some fileName ->
+            { model with FileName = None; IsUploading = true }, Cmd.ofPromise uploadFile fileName FileUploaded UploadFailed
+ 
     | Err _ ->
         model, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
-
+        
 
 
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
+open Fable.Import
+
+let [<Literal>] ENTER_KEY = 13.
+
+let onEnter msg dispatch =
+    OnKeyDown (fun (ev:React.KeyboardEvent) ->
+        match ev with 
+        | _ when ev.keyCode = ENTER_KEY ->
+            ev.preventDefault()
+            dispatch msg
+        | _ -> ())
 
 let view (model : Model) (dispatch : Msg -> unit) =
     Hero.hero [ Hero.Color IsPrimary; Hero.IsFullHeight ]
         [ Hero.body [ ]
             [ Container.container [ Container.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                 [ div [] [
+                    input [ 
+                        Type "file"
+                        OnChange (fun x -> FileNameChanged x.Value |> dispatch)
+                        onEnter Upload dispatch ] 
+                    br []
                     str "Latest Firmware: "
                     (match model.Firmware with
                      | None -> str "Unknown"

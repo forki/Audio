@@ -18,3 +18,4 @@ deploy
 /src/Client/public
 /pideploy/
 /firmware
+yarn-error.log

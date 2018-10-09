@@ -3,7 +3,7 @@
 This projects aims to provide music entertainment for toddlers.
 
 The idea is that children will get a WiFi connected box and some objects (e.g. PlayMobil figures) that are equipped with NFC stickers. Whenever the child is putting such an object on the box, the box will start to play audio.
-The NFC to audio URL translation can be configured on a server in the Azure cloud. 
+The NFC to audio URL translation can be configured on a server in the Azure cloud.
 So a PlayMobil knight might make the box play a story about knights, or a picture with grandpa may play his voice telling a small story.
 
 There are couple of commercial solutions for this, but this project aims to create an open platform.
@@ -40,3 +40,16 @@ Nobody wants their children to stay awake all night to play with this box. The w
 
 * Download latest [Raspbian image with Desktop](https://www.raspberrypi.org/downloads/raspbian/)
 * Use [Etcher](https://etcher.io/) to flash the image onto your SD-Card
+
+
+```ini
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=<<Your_ISO-3166-1_two-letter_country_code>>
+
+network={
+    ssid="<<Your_SSID>>"
+    psk="<<Your_PSK>>"
+    key_mgmt=WPA-PSK
+}
+```

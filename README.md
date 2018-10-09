@@ -36,11 +36,16 @@ Nobody wants their children to stay awake all night to play with this box. The w
 
 ## Installation
 
-## Preparing the SD-Card
+### Preparing the SD-Card
+
+#### Flash operating system on SD-Card
 
 * Download latest [Raspbian image with Desktop](https://www.raspberrypi.org/downloads/raspbian/)
 * Use [Etcher](https://etcher.io/) to flash the image onto your SD-Card
 
+#### Activate WiFi
+
+* Create a file called `/boot/wpa_supplicant.conf` on the SD-Card and put the follwoing content in:
 
 ```ini
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -53,3 +58,9 @@ network={
     key_mgmt=WPA-PSK
 }
 ```
+
+* Replace <<Your_ISO-3166-1_two-letter_country_code>> with your ISO Country Code (such as DE for Germany), <<Your_SSID>> with your wireless access point name and <<Your_PSK>> with your wifi password.
+
+#### Activate SSH
+
+* Create a file called `ssh` on the SD-Card. It can be left empty.

@@ -45,7 +45,7 @@ Nobody wants their children to stay awake all night to play with this box. The w
 
 #### Activate WiFi
 
-* Create a file called `/boot/wpa_supplicant.conf` on the SD-Card and put the following content in:
+* Create a file called `wpa_supplicant.conf` on the SD-Card and put the following content in:
 
 ```ini
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -65,4 +65,12 @@ network={
 
 #### Activate SSH
 
-* Create a file called `/boot/ssh` on the SD-Card. It can be left empty.
+* Create a file called `ssh` (no ending) on the SD-Card. It can be left empty.
+
+### Connecting to the Raspberry Pi
+
+* Put the SD-Card into the Raspberry Pi
+* Connect the Raspberry Pi with the USB-Charger
+* Connect to the Raspberry Pi via SSH (you can use [putty](https://www.putty.org/) on Windows)
+* Username: "pi", Password: "raspberry"
+* Change the default password with the command `passwd`

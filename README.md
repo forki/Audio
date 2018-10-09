@@ -45,7 +45,7 @@ Nobody wants their children to stay awake all night to play with this box. The w
 
 #### Activate WiFi
 
-* Create a file called `/boot/wpa_supplicant.conf` on the SD-Card and put the follwoing content in:
+* Create a file called `/boot/wpa_supplicant.conf` on the SD-Card and put the following content in:
 
 ```ini
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -60,7 +60,9 @@ network={
 ```
 
 * Replace <<Your_ISO-3166-1_two-letter_country_code>> with your ISO Country Code (such as DE for Germany), <<Your_SSID>> with your wireless access point name and <<Your_PSK>> with your wifi password.
+* ATTENTION: The file must be formatted with Linux style line endings.
+* More details can be found on [stackexchange](https://raspberrypi.stackexchange.com/a/57023).
 
 #### Activate SSH
 
-* Create a file called `ssh` on the SD-Card. It can be left empty.
+* Create a file called `/boot/ssh` on the SD-Card. It can be left empty.

@@ -33,3 +33,10 @@ Users may want to keep audio files in their local network. The web client will a
 ### Business times
 
 Nobody wants their children to stay awake all night to play with this box. The website will allow to configure times where the system is inactive.
+
+## Installation
+
+## Preparing the SD-Card
+
+* Download latest [Raspbian image with Desktop](https://www.raspberrypi.org/downloads/raspbian/)
+* Use [Etcher](https://etcher.io/) to flash the image onto your SD-Card

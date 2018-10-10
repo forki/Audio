@@ -1,3 +1,4 @@
+open System.IO
 #r "paket: groupref build //"
 #load "./.fake/build.fsx/intellisense.fsx"
 
@@ -142,18 +143,18 @@ Target.create "SetReleaseNotes" (fun _ ->
     System.IO.File.WriteAllLines("src/Client/ReleaseNotes.fs",lines)
 )
 
-Target.create "BundleClient" (fun _ ->
+let copyInLinuxFormat target (files: seq<string>) =
+    files
+    |> Seq.iter (fun file ->
+        let fi = FileInfo file
+        let content = File.ReadAllText file
+        let content = content.Replace("\r\n","\n").Replace("\r","\n")
+        let targetFile = target </> fi.Name
+        File.WriteAllText(targetFile,content))
+
+Target.create "CreateFirmware" (fun _ ->
     let dotnetOpts = install.Value (DotNet.Options.Create())
-    let result =
-        Process.execSimple (fun info ->
-            { info with
-                FileName = dotnetOpts.DotNetCliPath
-                WorkingDirectory = serverPath
-                Arguments = "publish -c Release -o \"" + Path.getFullName deployDir + "\"" }) TimeSpan.MaxValue
-    if result <> 0 then failwith "Publish Server failed"
-
     let publish = piDeployDir </> "publish"
-
     Shell.cleanDirs [publish]
     let result =
         Process.execSimple (fun info ->
@@ -163,13 +164,27 @@ Target.create "BundleClient" (fun _ ->
                 Arguments = "publish -c Release -r linux-arm -o \"" + Path.getFullName publish + "\"" }) TimeSpan.MaxValue
     if result <> 0 then failwith "Publish PiServer failed"
 
-    [ piServerPath </> "PiServer"] |> Shell.copyFiles piDeployDir
-    !! (piServerPath </> "*.sh") |> Shell.copyFiles piDeployDir
+    [ piServerPath </> "PiServer"
+      "./README.md"
+      piServerPath </> "PiServer.defaults"
+    ] |> copyInLinuxFormat piDeployDir
+    !! (piServerPath </> "*.sh") |> copyInLinuxFormat piDeployDir
 
-    !! (piServerPath </> "*.js") |> Shell.copyFiles publish
-    !! (piServerPath </> "*.js") |> Shell.copyFiles publish
+    !! (piServerPath </> "*.js") |> copyInLinuxFormat publish
+    !! (piServerPath </> "*.js") |> copyInLinuxFormat publish
 
     System.IO.Compression.ZipFile.CreateFromDirectory(piDeployDir, currentFirmware)
+)
+
+Target.create "BundleClient" (fun _ ->
+    let dotnetOpts = install.Value (DotNet.Options.Create())
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = dotnetOpts.DotNetCliPath
+                WorkingDirectory = serverPath
+                Arguments = "publish -c Release -o \"" + Path.getFullName deployDir + "\"" }) TimeSpan.MaxValue
+    if result <> 0 then failwith "Publish Server failed"
 
     let clientDir = deployDir </> "client"
     let publicDir = clientDir </> "public"
@@ -288,6 +303,7 @@ open Fake.Core.TargetOperators
     ==> "InstallClient"
     ==> "SetReleaseNotes"
     ==> "Build"
+    ==> "CreateFirmware"
     ==> "BundleClient"
     ==> "CreateDockerImage"
     ==> "PrepareRelease"

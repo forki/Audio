@@ -1,0 +1,6 @@
+NAME=PiServer
+DAEMONHOME=/home/pi/PiServer/publish
+DAEMON=$DAEMONHOME/$NAME
+DAEMON_ARGS="--options args"
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=/etc/init.d/$NAME

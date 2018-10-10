@@ -1,11 +1,14 @@
 module internal ReleaseNotes
 
-let Version = "0.2.4"
+let Version = "0.3.0"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
+
+## 0.3.0 - 2018-10-10
+* Bundle firmware installer
 
 ## 0.2.4 - 2018-10-10
 * Stream to Raspberry Pi

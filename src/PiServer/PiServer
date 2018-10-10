@@ -11,19 +11,13 @@
 #                    placed in /etc/init.d.
 ### END INIT INFO
 
-DESC="PiServer audio hub"
+DESC="PiServer audio player"
 NAME=PiServer
 DAEMONHOME=/home/pi/PiServer/publish
 DAEMON=$DAEMONHOME/$NAME
 DAEMON_ARGS="--options args"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
-
-[ -x "$DAEMON" ] || exit 0
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
-. /lib/init/vars.sh
-. /lib/lsb/init-functions
-
 
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0

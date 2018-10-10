@@ -154,7 +154,7 @@ let copyInLinuxFormat target (files: seq<string>) =
 
 Target.create "CreateFirmware" (fun _ ->
     let dotnetOpts = install.Value (DotNet.Options.Create())
-    let publish = piDeployDir </> "publish"
+    let publish = piDeployDir </> "bin"
     Shell.cleanDirs [publish]
     let result =
         Process.execSimple (fun info ->

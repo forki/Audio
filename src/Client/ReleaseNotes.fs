@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "0.3.1"
+let Version = "0.3.2"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 0.3.1 - 2018-10-10
+## 0.3.2 - 2018-10-10
 * Bundle firmware installer
 
 ## 0.2.4 - 2018-10-10

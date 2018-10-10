@@ -1,6 +1,6 @@
 # Release Notes
 
-## 0.2.3 - 2018-10-10
+## 0.2.4 - 2018-10-10
 * Stream to Raspberry Pi
 
 ## 0.1.12 - 2018-10-08

@@ -270,8 +270,16 @@ Target.create "Deploy" (fun _ ->
                 WorkingDirectory = deployDir
                 Arguments = sprintf "push %s/%s" dockerUser dockerImageName }) TimeSpan.MaxValue
     if result <> 0 then failwith "Docker push failed"
-)
 
+
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = "docker"
+                WorkingDirectory = deployDir
+                Arguments = sprintf "image rm %s/%s" dockerUser dockerImageName }) TimeSpan.MaxValue
+    if result <> 0 then failwith "Docker image rm failed"
+)
 
 
 open Fake.Core.TargetOperators

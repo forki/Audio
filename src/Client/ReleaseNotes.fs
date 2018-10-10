@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "0.2.2"
+let Version = "0.2.3"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 0.2.2 - 2018-10-10
+## 0.2.3 - 2018-10-10
 * Stream to Raspberry Pi
 
 ## 0.1.12 - 2018-10-08

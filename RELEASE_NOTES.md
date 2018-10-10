@@ -1,6 +1,6 @@
 # Release Notes
 
-## 0.3.0 - 2018-10-10
+## 0.3.1 - 2018-10-10
 * Bundle firmware installer
 
 ## 0.2.4 - 2018-10-10

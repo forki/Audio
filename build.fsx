@@ -152,18 +152,25 @@ Target.create "BundleClient" (fun _ ->
                 Arguments = "publish -c Release -o \"" + Path.getFullName deployDir + "\"" }) TimeSpan.MaxValue
     if result <> 0 then failwith "Publish Server failed"
 
+    let publish = piDeployDir </> "publish"
+
+    Shell.cleanDirs [publish]
     let result =
         Process.execSimple (fun info ->
             { info with
                 FileName = dotnetOpts.DotNetCliPath
                 WorkingDirectory = piServerPath
-                Arguments = "publish -c Release -r linux-arm -o \"" + Path.getFullName piDeployDir + "\"" }) TimeSpan.MaxValue
+                Arguments = "publish -c Release -r linux-arm -o \"" + Path.getFullName publish + "\"" }) TimeSpan.MaxValue
     if result <> 0 then failwith "Publish PiServer failed"
 
-    !! (piServerPath </> "*.json") |> Shell.copyFiles piDeployDir
-    !! (piServerPath </> "*.js") |> Shell.copyFiles piDeployDir
+    [ piServerPath </> "PiServer"] |> Shell.copyFiles piDeployDir
+    !! (piServerPath </> "*.sh") |> Shell.copyFiles piDeployDir
+
+    !! (piServerPath </> "*.js") |> Shell.copyFiles publish
+    !! (piServerPath </> "*.js") |> Shell.copyFiles publish
 
     System.IO.Compression.ZipFile.CreateFromDirectory(piDeployDir, currentFirmware)
+
     let clientDir = deployDir </> "client"
     let publicDir = clientDir </> "public"
     let jsDir = clientDir </> "js"

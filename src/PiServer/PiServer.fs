@@ -91,6 +91,18 @@ let executeTag (tag:string) = task {
     | Ok tag -> return! executeAction tag.Action
 }
 
+let runFirmwareUpdate() =
+    let p = new Process()
+    let startInfo = new ProcessStartInfo()
+    startInfo.WorkingDirectory <- "/home/pi/firmware/"
+    startInfo.FileName <- "sudo"
+    startInfo.Arguments <- "sh update.sh"
+    startInfo.RedirectStandardOutput <- true
+    startInfo.UseShellExecute <- false
+    startInfo.CreateNoWindow <- true
+    p.StartInfo <- startInfo
+    p.Start() |> ignore
+
 let checkFirmware () = task {
     use webClient = new System.Net.WebClient()
     System.Net.ServicePointManager.SecurityProtocol <-
@@ -110,12 +122,18 @@ let checkFirmware () = task {
                 printfn "Starting download of %s" firmware.Url
                 do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
                 printfn "Download done."
-                let target = System.IO.Path.GetFullPath "./install"
+                let target = System.IO.Path.GetFullPath "/home/pi/firmware"
                 if System.IO.Directory.Exists target then
                     System.IO.Directory.Delete(target,true)
                 System.IO.Directory.CreateDirectory(target) |> ignore
                 System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, target)
                 System.IO.File.Delete localFileName
+                runFirmwareUpdate()
+                while true do
+                    printfn "Running firmware update."
+                    do! Task.Delay 3000
+                    ()
+
                 return Some firmware.Version
             else
                 return None
@@ -161,12 +179,15 @@ printfn "Server started"
 
 let firmwareCheck = checkFirmware()
 firmwareCheck.Wait()
-let r = firmwareCheck.Result
+
+match firmwareCheck.Result with
+| Some v -> printfn "Firmware %s is uptodate." v
+| _ -> printfn "Could not update firmware"
 
 let startupTask = executeStartupActions()
 startupTask.Wait()
 
-printfn "%A" startupTask.Result
+printfn "Startup: %A" startupTask.Result
 let mutable running = null
 
 let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
@@ -174,7 +195,7 @@ let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServi
 let rfidLoop() = task {
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
-        
+
         if String.IsNullOrEmpty token then
             let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
             ()
@@ -193,7 +214,7 @@ let rfidLoop() = task {
                 if newToken <> token then
                     printfn "tag was removed from reader"
                     waiting <- false
-            
+
             let! _ = stop()
             ()
 }

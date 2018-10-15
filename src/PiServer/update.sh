@@ -72,4 +72,3 @@ if [ -e $DEFAULTS ]; then
 else
     log_failure_msg "Unable to load defaults"
 fi
-

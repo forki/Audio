@@ -1,6 +1,6 @@
 # Release Notes
 
-## 0.3.4 - 2018-10-15
+## 0.3.5 - 2018-10-15
 * run npm during install
 
 ## 0.3.2 - 2018-10-10

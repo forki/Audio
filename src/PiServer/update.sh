@@ -31,8 +31,15 @@ if [ -e $DEFAULTS ]; then
             exit 2
         fi
 
+        log_action_begin_msg "Updating packages "
+        log_action_cont_msg " apt update "
+        apt-get -qq update
+        log_action_cont_msg " apt install "
+        apt-get -qq install curl libunwind8 gettext apt-transport-https npm
+        log_action_end_msg $?
+
         log_action_begin_msg "Updating"
-        log_action_cont_msg "Init script"
+        log_action_cont_msg " Init script "
         cp $SCRIPTROOT/$PROJECTNAME /etc/init.d/
 
         chmod +x /etc/init.d/$PROJECTNAME
@@ -40,14 +47,21 @@ if [ -e $DEFAULTS ]; then
         systemctl daemon-reload
         log_action_end_msg $?
 
-        log_action_begin_msg "Updating $DAEMONHOME"
-        rm -R $DAEMONHOME && cp -r $SOURCEPATH/. $DAEMONHOME
+        log_action_begin_msg "Updating $DAEMONHOME "
+        log_action_cont_msg " Backup node_modules "
+        cp -r $DAEMONHOME/node_modules $SOURCEPATH/
 
-        (cd $DAEMONHOME && npm install)
-        chmod +x $DAEMONHOME/$NAME
+        log_action_cont_msg " installing new version to $DAEMONHOME "
+        rm -R $DAEMONHOME && cp -r $SOURCEPATH/. $DAEMONHOME
+        log_action_end_msg $?
+
+        log_action_begin_msg "Updating node_modules"
+        cd $DAEMONHOME && npm --silent install > /dev/null 2>&1
         log_action_end_msg $?
 
         if [ -e $DAEMON ]; then
+            chmod +x $DAEMONHOME/$NAME
+
             log_action_begin_msg "Starting service"
             service $PROJECTNAME start
             log_action_end_msg $?

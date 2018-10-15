@@ -1,5 +1,8 @@
 # Release Notes
 
+## 0.3.3 - 2018-10-15
+* run npm during install
+
 ## 0.3.2 - 2018-10-10
 * Bundle firmware installer
 

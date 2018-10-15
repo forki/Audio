@@ -29,7 +29,7 @@ let getSASMediaLink mediaID =  task {
     policy.SharedAccessStartTime <- Nullable(DateTimeOffset.UtcNow)
     policy.Permissions <- SharedAccessBlobPermissions.Read
     let sas = blockBlob.GetSharedAccessSignature(policy)
-    
+
     return blockBlob.Uri.ToString() + sas
 }
 
@@ -39,7 +39,7 @@ let uploadMusik (stream:Stream) = task {
 
     let blobClient = connection.CreateCloudBlobClient()
     let mediaContainer = blobClient.GetContainerReference "media"
-    let! _ = mediaContainer.CreateIfNotExistsAsync() 
+    let! _ = mediaContainer.CreateIfNotExistsAsync()
 
     let blockBlob = mediaContainer.GetBlockBlobReference(mediaID.ToString())
     blockBlob.Properties.ContentType <- "audio/mpeg"
@@ -50,7 +50,7 @@ let uploadMusik (stream:Stream) = task {
 
 let mapBlobMusikTag (tag:Tag) = task {
     match tag.Action with
-    | TagAction.PlayBlobMusik mediaID -> 
+    | TagAction.PlayBlobMusik mediaID ->
         let! sas = getSASMediaLink(mediaID.ToString())
         return { tag with Action = TagAction.PlayMusik sas }
     | _ -> return tag
@@ -82,7 +82,7 @@ let tagEndpoint (userID,token) =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            
+
             let! tag = AzureTable.getTag userID token
             let! tag =
                 match tag with
@@ -103,7 +103,7 @@ let allTagsEndpoint userID =
                 tags
                 |> Array.map mapBlobMusikTag
                 |> Task.WhenAll
-                
+
             let txt = TagList.Encoder { Tags = tags } |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })
@@ -115,8 +115,8 @@ let startupEndpoint =
         plug (fun next ctx -> task {
             let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
             let actions = [TagAction.PlayMusik sas]
-            
-            let txt = 
+
+            let txt =
                 actions
                 |> List.map TagAction.Encoder
                 |> Encode.list
@@ -125,16 +125,19 @@ let startupEndpoint =
         })
     }
 
-    
+let firmwareLink = sprintf "https://github.com/forki/Audio/releases/download/%s/PiFirmware.%s.zip" ReleaseNotes.Version ReleaseNotes.Version
+
+let getLatestFirmware next ctx = redirectTo false firmwareLink next ctx
+
 let firmwareEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let current = { 
+            let current = {
                 Version = ReleaseNotes.Version
-                Url = sprintf "https://github.com/forki/Audio/releases/download/%s/PiFirmware.%s.zip" ReleaseNotes.Version ReleaseNotes.Version
+                Url = firmwareLink
             }
-            
+
             let txt = Firmware.Encoder current |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })
@@ -147,6 +150,7 @@ let webApp =
         post "/api/upload" uploadEndpoint
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
+        get "/api/latestfirmware" getLatestFirmware
     }
 
 let configureSerialization (services:IServiceCollection) =

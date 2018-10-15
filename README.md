@@ -67,10 +67,31 @@ network={
 
 * Create a file called `ssh` (no ending) on the SD-Card. It can be left empty.
 
+#### Activate SPI master driver
+
+* Modify `config.txt` and remove the comment before `dtparam=spi=on`. [more info](https://www.raspberrypi.org/documentation/hardware/raspberrypi/spi/README.md)
+
+### Wiring up the RFID module
+
+* The following schema shows the wiring for the RFID-RC522 Mifare reader.
+* ATTENTION: Please note that some vendors have a slightly different layout on the module and that the free pin may be at a different position.
+
+![Wiring](src/PiServer/rpi-mfrc522-wiring2.png)
+
 ### Connecting to the Raspberry Pi
 
 * Put the SD-Card into the Raspberry Pi
 * Connect the Raspberry Pi with the USB-Charger
+* Try to find out the [IP of your device](https://www.raspberrypi.org/documentation/remote-access/ip-address.md)
 * Connect to the Raspberry Pi via SSH (you can use [putty](https://www.putty.org/) on Windows)
 * Username: "pi", Password: "raspberry"
 * Change the default password with the command `passwd`
+
+### Installing latest firmware
+
+* `sudo apt-get update`
+* `sudo apt-get install curl unzip`
+* `curl -sSL -o firmware.zip https://audio-hub.azurewebsites.net/api/latestfirmware`
+* `unzip firmware.zip -d firmware && rm firmware.zip`
+* `chmod u+x firmware/install.sh`
+* `sudo firmware/install.sh`

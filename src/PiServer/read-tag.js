@@ -15,11 +15,14 @@ exports.read = function (callback, lastTag) {
     //# Get the UID of the card
     response = mfrc522.getUid();
     if (!response.status) {
-        console.log("UID Scan Error");
+        callback(null, "");
         return;
     }
 
     const uid = response.data;
     var data = uid.map(x => x.toString(16)).join('');
+    if (uid.length < 7){
+        data = uid[0].toString(16) + uid[1].toString(16) + uid[2].toString(16) + uid[3].toString(16);
+    }
     callback(null, data);
 }

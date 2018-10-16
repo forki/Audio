@@ -4,3 +4,4 @@ group Server
     Microsoft.AspNetCore.NodeServices
     Thoth.Json.Net
     Thoth.Json
+    log4net

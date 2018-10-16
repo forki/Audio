@@ -5,7 +5,6 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="ReleaseNotes.fs" />
-        <Compile Include="Fable.Helpers.ReactGoogleMaps.fs" />
         <Compile Include="..\Shared\Shared.fs" />
         <Compile Include="Client.fs" />
     </ItemGroup>

@@ -3,17 +3,33 @@ open Giraffe
 open Saturn
 open FSharp.Control.Tasks.ContextInsensitive
 open System
+open System.IO
 open Microsoft.AspNetCore.NodeServices
 open Thoth.Json.Net
 open ServerCore.Domain
 open System.Threading.Tasks
 open System.Threading
 open System.Diagnostics
+open System.Xml
+open System.Reflection
 
 let tagServer = "https://audio-hub.azurewebsites.net"
 // let tagServer = "http://localhost:8085"
 
 let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f"
+
+
+let configureLogging() =
+    let log4netConfig = XmlDocument()
+    log4netConfig.Load(File.OpenRead("log4net.config"))
+    let repo = log4net.LogManager.CreateRepository(Assembly.GetEntryAssembly(), typeof<log4net.Repository.Hierarchy.Hierarchy>)
+    log4net.Config.XmlConfigurator.Configure(repo, log4netConfig.["log4net"]) |> ignore
+
+    let log = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType)
+    log
+
+
+let log = configureLogging()
 
 
 let port = 8086us
@@ -24,9 +40,9 @@ let mutable runningProcess = null
 let play  (cancellationToken:CancellationToken) (uri:string) = task {
     use webClient = new System.Net.WebClient()
     let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".mp3")
-    printfn "Starting download of %s" uri
+    log.InfoFormat("Starting download of {0}", uri)
     do! webClient.DownloadFileTaskAsync(uri,localFileName)
-    printfn "Playing %s" localFileName
+    log.InfoFormat("Playing {0}", localFileName)
     let p = new System.Diagnostics.Process()
     runningProcess <- p
     let startInfo = System.Diagnostics.ProcessStartInfo()
@@ -52,11 +68,11 @@ let play  (cancellationToken:CancellationToken) (uri:string) = task {
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
 let stop() = task {
-    printfn "trying to kill"
+    log.InfoFormat "trying to kill"
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
-            printfn "kill omxplaxer"
-            try p.Kill() with _ -> printfn "couldn't kill"
+            log.InfoFormat "kill omxplaxer"
+            try p.Kill() with _ -> log.WarnFormat "couldn't kill omxplayer"
     cts.Cancel()
     return "Test"
 }
@@ -118,15 +134,15 @@ let checkFirmware () = task {
 
     match Decode.fromString Firmware.Decoder result with
     | Error msg ->
-        printfn "Decoder error: %s" msg
+        log.InfoFormat("Decoder error: {0}", msg)
         return failwith msg
     | Ok firmware ->
         try
             if firmware.Version <> ReleaseNotes.Version then
                 let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".zip")
-                printfn "Starting download of %s" firmware.Url
+                log.InfoFormat("Starting download of {0}", firmware.Url)
                 do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
-                printfn "Download done."
+                log.InfoFormat "Download done."
                 let target = System.IO.Path.GetFullPath "/home/pi/firmware"
                 if System.IO.Directory.Exists target then
                     System.IO.Directory.Delete(target,true)
@@ -135,14 +151,14 @@ let checkFirmware () = task {
                 System.IO.File.Delete localFileName
                 runFirmwareUpdate()
                 while true do
-                    printfn "Running firmware update."
+                    log.InfoFormat "Running firmware update."
                     do! Task.Delay 3000
                     ()
             else
-                printfn "Firmware %s is uptodate." ReleaseNotes.Version
+                log.InfoFormat( "Firmware {0} is uptodate.", ReleaseNotes.Version)
         with
         | exn ->
-            printfn "Upgrade error: %s" exn.Message
+            log.ErrorFormat("Upgrade error: {0}", exn.Message)
 }
 
 let executeStartupActions () = task {
@@ -179,7 +195,7 @@ let builder = application {
 let app = builder.Build()
 app.Start()
 
-printfn "Server started"
+log.InfoFormat "Server started"
 
 let firmwareCheck = checkFirmware()
 firmwareCheck.Wait()
@@ -187,7 +203,8 @@ firmwareCheck.Wait()
 let startupTask = executeStartupActions()
 startupTask.Wait()
 
-printfn "Startup: %A" startupTask.Result
+log.InfoFormat("Startup: {0}", startupTask.Result)
+
 let mutable running = null
 
 let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
@@ -200,7 +217,7 @@ let rfidLoop() = task {
             let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
             ()
         else
-            printfn "Read: %s" token
+            log.InfoFormat("Read: {0}", token)
             running <- executeTag token
             let mutable waiting = true
             while waiting do
@@ -208,11 +225,11 @@ let rfidLoop() = task {
                 if running.IsCompleted then
                     for p in getMusikPlayerProcesses() do
                         if p.HasExited then
-                            printfn "omxplayer was shut down"
+                            log.InfoFormat "omxplayer was shut down"
                             waiting <- false
                 let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
                 if newToken <> token then
-                    printfn "tag was removed from reader"
+                    log.InfoFormat "tag was removed from reader"
                     waiting <- false
 
             let! _ = stop()

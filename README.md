@@ -99,4 +99,4 @@ network={
 
 ### Checking logs
 
-tail /var/log/syslog | grep PiServer
+tailf PiServer/publish/logs/clientlog.log

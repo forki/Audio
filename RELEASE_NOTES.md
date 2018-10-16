@@ -1,6 +1,9 @@
 # Release Notes
 
-## 0.3.16 - 2018-10-16
+## 0.4.0 - 2018-10-16
+* logging into logfile
+
+## 0.3.17 - 2018-10-16
 * run npm during install
 
 ## 0.3.2 - 2018-10-10

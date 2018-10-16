@@ -38,11 +38,12 @@ let cts = new CancellationTokenSource()
 let mutable runningProcess = null
 
 let play  (cancellationToken:CancellationToken) (uri:string) = task {
-    use webClient = new System.Net.WebClient()
-    let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".mp3")
-    log.InfoFormat("Starting download of {0}", uri)
-    do! webClient.DownloadFileTaskAsync(uri,localFileName)
-    log.InfoFormat("Playing {0}", localFileName)
+    // use webClient = new System.Net.WebClient()
+    // let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".mp3")
+    // log.InfoFormat("Starting download of {0}", uri)
+    // do! webClient.DownloadFileTaskAsync(uri,localFileName)
+    // log.InfoFormat("Playing {0}", localFileName)
+    let mediaFile = uri
     let p = new System.Diagnostics.Process()
     runningProcess <- p
     let startInfo = System.Diagnostics.ProcessStartInfo()
@@ -56,7 +57,7 @@ let play  (cancellationToken:CancellationToken) (uri:string) = task {
     try
         cancellationToken.Register(fun () -> tcs.SetCanceled()) |> ignore
         startInfo.FileName <- "omxplayer"
-        startInfo.Arguments <- localFileName
+        startInfo.Arguments <- mediaFile
         p.StartInfo <- startInfo
         let _ = p.Start()
         let! _ = tcs.Task

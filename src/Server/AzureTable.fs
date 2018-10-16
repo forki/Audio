@@ -129,6 +129,7 @@ let storageConnectionString =
 let connection = (AzureConnection storageConnectionString).Connect()
 
 let tagsTable = getTable "tags" connection
+let requestsTable = getTable "requests" connection
 
 
 open ServerCore.Domain
@@ -152,23 +153,14 @@ let saveTag (userID:string) (tag:Tag) =
     tagsTable.ExecuteAsync operation
 
 
-#if DEBUG
-let tags =
-      [| { Token = "celeb"; Action = TagAction.PlayMusik (sprintf @"%s/custom/%s" URLs.mp3Server "Celebrate") }
-         { Token = "stop"; Action = TagAction.StopMusik } |]
+let saveRequest (userID:string) (token:string) =
+    let entity = DynamicTableEntity()
+    entity.PartitionKey <- userID
+    entity.RowKey <- System.DateTimeOffset.UtcNow.ToString("o")
+    entity.Properties.["Token"] <- EntityProperty.GeneratePropertyForString token
+    let operation = TableOperation.InsertOrReplace entity
+    requestsTable.ExecuteAsync operation    
 
-let getTag (userID:string) token = task {
-    return
-        tags
-        |> Array.tryFind (fun x -> x.Token = token)
-}
-
-
-let getAllTagsForUser (userID:string) = task {
-    return tags
-}
-
-#else
 let getTag (userID:string) token = task {
     let query = TableOperation.Retrieve(userID, token)
     let! r = tagsTable.ExecuteAsync(query)
@@ -195,5 +187,3 @@ let getAllTagsForUser (userID:string) = task {
     
     return [| for result in results -> mapTag result |] 
 }
-
-#endif

@@ -82,7 +82,7 @@ let tagEndpoint (userID,token) =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-
+            let! _ = AzureTable.saveRequest userID token
             let! tag = AzureTable.getTag userID token
             let! tag =
                 match tag with

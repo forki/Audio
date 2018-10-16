@@ -1,5 +1,8 @@
 # Release Notes
 
+## 0.5.0 - 2018-10-16
+* Server logs access
+
 ## 0.4.3 - 2018-10-16
 * logging into logfile
 

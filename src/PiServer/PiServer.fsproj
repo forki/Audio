@@ -10,7 +10,16 @@
         <Compile Include="PiServer.fs" />
     </ItemGroup>
     <ItemGroup>
-        <None Update="read-tag.js">
+        <None Include="read-tag.js">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Include="package.json">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Include="log4net.config">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Include="PiServer">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
     </ItemGroup>

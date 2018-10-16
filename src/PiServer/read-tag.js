@@ -3,6 +3,18 @@ const mfrc522 = require("mfrc522-rpi");
 //# Init WiringPi with SPI Channel 0
 mfrc522.initWiringPi(0);
 
+function decimalToHex(d) {
+    var padding = 2;
+    var hex = Number(d).toString(16);
+    padding = typeof (padding) === "undefined" || padding === null ? padding = 2 : padding;
+
+    while (hex.length < padding) {
+        hex = "0" + hex;
+    }
+
+    return hex;
+}
+
 exports.read = function (callback, lastTag) {
     mfrc522.reset();
 
@@ -20,7 +32,7 @@ exports.read = function (callback, lastTag) {
     }
 
     const uid = response.data;
-    var data = uid.map(x => x.toString(16)).join('');
+    var data = uid.map(x => decimalToHex(x)).join('');
     if (uid.length < 7){
         data = uid[0].toString(16) + uid[1].toString(16) + uid[2].toString(16) + uid[3].toString(16);
     }

@@ -114,7 +114,9 @@ let checkFirmware () = task {
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
     match Decode.fromString Firmware.Decoder result with
-    | Error msg -> return failwith msg
+    | Error msg ->
+        printfn "Decoder error: %s" msg
+        return failwith msg
     | Ok firmware ->
         try
             if firmware.Version <> ReleaseNotes.Version then
@@ -133,12 +135,11 @@ let checkFirmware () = task {
                     printfn "Running firmware update."
                     do! Task.Delay 3000
                     ()
-
-                return Some firmware.Version
             else
-                return None
+                printfn "Firmware %s is uptodate." ReleaseNotes.Version
         with
-        | _ -> return None
+        | exn ->
+            printfn "Upgrade error: %s" exn.Message
 }
 
 let executeStartupActions () = task {
@@ -179,10 +180,6 @@ printfn "Server started"
 
 let firmwareCheck = checkFirmware()
 firmwareCheck.Wait()
-
-match firmwareCheck.Result with
-| Some v -> printfn "Firmware %s is uptodate." v
-| _ -> printfn "Could not update firmware"
 
 let startupTask = executeStartupActions()
 startupTask.Wait()

@@ -196,15 +196,13 @@ let builder = application {
 let app = builder.Build()
 app.Start()
 
-log.InfoFormat "Server started"
+log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
 
 let firmwareCheck = checkFirmware()
 firmwareCheck.Wait()
 
 let startupTask = executeStartupActions()
 startupTask.Wait()
-
-log.InfoFormat("Startup: {0}", startupTask.Result)
 
 let mutable running = null
 

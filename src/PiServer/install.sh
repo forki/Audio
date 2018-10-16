@@ -19,8 +19,10 @@ if [ "x$DAEMONHOME" = "x" ]; then
 fi
 log_action_end_msg $?
 
-log_action_begin_msg "Install dependencies"
-sudo apt-get update
+log_action_begin_msg "Updating packages "
+log_action_cont_msg " apt update "
+apt-get -qq update
+log_action_cont_msg " apt install "
 sudo apt-get install -y curl libunwind8 gettext apt-transport-https omxplayer pulseaudio-module-bluetooth npm unzip
 log_action_end_msg $?
 
@@ -42,16 +44,23 @@ if [ -e  $SCRIPTROOT/$PROJECTNAME ]; then
         mkdir -p $DAEMONHOME
     fi
 
+    log_action_begin_msg "Install application into $DAEMONHOME "
     cp -r $SOURCEPATH/. $DAEMONHOME
     cp  $SCRIPTROOT/$PROJECTNAME /etc/init.d/
+    log_action_end_msg $?
 
     log_action_begin_msg "Updating node_modules"
     cd $DAEMONHOME && npm --silent install > /dev/null 2>&1
     log_action_end_msg $?
 
+    log_action_begin_msg "Enabling daemon"
     chmod +x /etc/init.d/$PROJECTNAME
     chmod +x $DAEMONHOME/$NAME
     systemctl daemon-reload
     systemctl enable $PROJECTNAME
+    log_action_end_msg $?
+
+    log_action_begin_msg "Starting service"
     service $PROJECTNAME start
+    log_action_end_msg $?
 fi

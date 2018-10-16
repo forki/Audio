@@ -86,6 +86,7 @@ network={
 * Connect to the Raspberry Pi via SSH (you can use [putty](https://www.putty.org/) on Windows)
 * Username: "pi", Password: "raspberry"
 * Change the default password with the command `passwd`
+* Change the hostname with `sudo raspi-config`. [more info](https://geek-university.com/raspberry-pi/change-raspberry-pis-hostname/)
 
 ### Installing latest firmware
 

@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "0.3.5"
+let Version = "0.3.6"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 0.3.5 - 2018-10-15
+## 0.3.6 - 2018-10-16
 * run npm during install
 
 ## 0.3.2 - 2018-10-10

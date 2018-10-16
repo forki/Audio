@@ -4,7 +4,6 @@ open Saturn
 open FSharp.Control.Tasks.ContextInsensitive
 open System
 open Microsoft.AspNetCore.NodeServices
-open System.Runtime.InteropServices
 open Thoth.Json.Net
 open ServerCore.Domain
 open System.Threading.Tasks
@@ -52,8 +51,8 @@ let stop() = task {
     printfn "trying to kill"
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
-            printfn "kill"
-            p.Kill()
+            printfn "kill omxplaxer"
+            try p.Kill() with _ -> printfn "couldn't kill"
     cts.Cancel()
     return "Test"
 }

@@ -33,9 +33,6 @@ sudo mkdir -p /opt/dotnet && sudo tar zxf dotnet.tar.gz -C /opt/dotnet
 rm dotnet.tar.gz
 sudo ln -s /opt/dotnet/dotnet /usr/local/bin
 
-pulseaudio -k
-pulseaudio --start
-
 if [ -e  $SCRIPTROOT/$PROJECTNAME ]; then
     if [ ! -e $DEFAULTS -a $SCRIPTROOT/$PROJECTNAME.defaults ]; then
         echo DAEMONHOME=$DAEMONHOME > $DEFAULTS

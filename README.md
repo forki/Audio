@@ -96,3 +96,7 @@ network={
 * `unzip firmware.zip -d firmware && rm firmware.zip`
 * `chmod u+x firmware/install.sh`
 * `sudo firmware/install.sh`
+
+### Checking logs
+
+tail /var/log/syslog | grep PiServer

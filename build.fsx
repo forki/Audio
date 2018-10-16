@@ -105,16 +105,12 @@ Target.create "RestoreServer" (fun _ ->
 
 Target.create "Build" (fun _ ->
     runDotNet "build" serverPath
-    runDotNet "build" piServerPath
     runDotNet "fable webpack-cli -- --config src/Client/webpack.config.js -p" clientPath
 )
 
 Target.create "Run" (fun _ ->
     let server = async {
         runDotNet "watch run" serverPath
-    }
-    let piServer = async {
-        runDotNet "watch run" piServerPath
     }
     let client = async {
         runDotNet "fable webpack-dev-server -- --config src/Client/webpack.config.js" clientPath
@@ -124,7 +120,7 @@ Target.create "Run" (fun _ ->
         openBrowser "http://localhost:8080"
     }
 
-    [ server; piServer; client; browser ]
+    [ server; client; browser ]
     |> Async.Parallel
     |> Async.RunSynchronously
     |> ignore

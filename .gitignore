@@ -19,3 +19,4 @@ deploy
 /pideploy/
 /firmware
 yarn-error.log
+/src/PiServer/logs/clientlog.log

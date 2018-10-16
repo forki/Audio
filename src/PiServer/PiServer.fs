@@ -37,7 +37,7 @@ let play  (cancellationToken:CancellationToken) (uri:string) = task {
     try
         cancellationToken.Register(fun () -> tcs.SetCanceled()) |> ignore
         startInfo.FileName <- "omxplayer"
-        startInfo.Arguments <- uri
+        startInfo.Arguments <- "-o alsa " + uri
         p.StartInfo <- startInfo
         let _ = p.Start()
         let! _ = tcs.Task

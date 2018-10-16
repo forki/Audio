@@ -14,8 +14,6 @@ open System.Xml
 open System.Reflection
 
 let tagServer = "https://audio-hub.azurewebsites.net"
-// let tagServer = "http://localhost:8085"
-
 let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f"
 
 
@@ -31,18 +29,12 @@ let configureLogging() =
 
 let log = configureLogging()
 
-
 let port = 8086us
 
 let cts = new CancellationTokenSource()
 let mutable runningProcess = null
 
 let play  (cancellationToken:CancellationToken) (uri:string) = task {
-    // use webClient = new System.Net.WebClient()
-    // let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".mp3")
-    // log.InfoFormat("Starting download of {0}", uri)
-    // do! webClient.DownloadFileTaskAsync(uri,localFileName)
-    // log.InfoFormat("Playing {0}", localFileName)
     let mediaFile = uri
     let p = new System.Diagnostics.Process()
     runningProcess <- p

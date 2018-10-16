@@ -33,8 +33,5 @@ exports.read = function (callback, lastTag) {
 
     const uid = response.data;
     var data = uid.map(x => decimalToHex(x)).join('');
-    if (uid.length < 7){
-        data = uid[0].toString(16) + uid[1].toString(16) + uid[2].toString(16) + uid[3].toString(16);
-    }
     callback(null, data);
 }

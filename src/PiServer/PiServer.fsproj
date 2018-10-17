@@ -13,6 +13,9 @@
         <None Include="read-tag.js">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
+        <None Include="youtube.js">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
         <None Include="package.json">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>

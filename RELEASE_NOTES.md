@@ -1,5 +1,8 @@
 # Release Notes
 
+## 0.6.0 - 2018-10-17
+* Youtube player
+
 ## 0.5.7 - 2018-10-17
 * Server logs
 

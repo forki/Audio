@@ -5,8 +5,10 @@ exports.download = function (callback, url) {
     const ytdl = require('ytdl-core');
 
     var fileName = 'youtube.flv';
-    ytdl(url, { filter: 'audioonly' })
-      .pipe(fs.createWriteStream(fileName));
+    var download = ytdl(url, { filter: 'audioonly' });
+    download.pipe(fs.createWriteStream(fileName));
 
-    callback(null, fileName);
+    download.on('end', function () {
+        callback(null, fileName);
+    });
 }

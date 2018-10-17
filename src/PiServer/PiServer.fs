@@ -218,7 +218,6 @@ try
     log.InfoFormat("Starting Youtube-Download: {0}", youtubeURL)
     let youtubeFile:string = nodeServices.InvokeExportAsync<string>("./youtube", "download", youtubeURL) |> Async.AwaitTask |> Async.RunSynchronously
     log.InfoFormat("Downloaded to: {0}", youtubeFile)
-    Thread.Sleep 1000
     currentTask <- play cts2.Token youtubeFile
     ()
 with

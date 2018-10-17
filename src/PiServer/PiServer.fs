@@ -34,7 +34,7 @@ let port = 8086us
 let cts = new CancellationTokenSource()
 let mutable runningProcess = null
 
-let play  (cancellationToken:CancellationToken) (uri:string) = task {
+let play (cancellationToken:CancellationToken) (uri:string) = task {
     let mediaFile = uri
     let p = new System.Diagnostics.Process()
     runningProcess <- p
@@ -209,40 +209,19 @@ let mutable running = null
 
 let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-let playYoutube  (cancellationToken:CancellationToken) (uri:string) = task {
-    let mediaFile = uri
-    let p = new System.Diagnostics.Process()
-    runningProcess <- p
-    let startInfo = System.Diagnostics.ProcessStartInfo()
-    p.EnableRaisingEvents <- true
-    let tcs = new TaskCompletionSource<obj>()
-    let handler = System.EventHandler(fun _ args ->
-        tcs.TrySetResult(null) |> ignore
-    )
-
-    p.Exited.AddHandler handler
-    try
-        cancellationToken.Register(fun () -> tcs.SetCanceled()) |> ignore
-        startInfo.FileName <- "omxplayer"
-        startInfo.Arguments <- mediaFile
-        p.StartInfo <- startInfo
-        let _ = p.Start()
-        let! _ = tcs.Task
-        return "Started"
-    finally
-        p.Exited.RemoveHandler handler
-}
+Thread.Sleep 10000
 
 try
     let youtubeURL = "https://www.youtube.com/watch?v=TJAfLE39ZZ8"
     log.InfoFormat("Starting Youtube-Download: {0}", youtubeURL)
     let youtubeFile:string = nodeServices.InvokeExportAsync<string>("./youtube", "download", youtubeURL) |> Async.AwaitTask |> Async.RunSynchronously
     log.InfoFormat("Downloaded to: {0}", youtubeFile)
-    let _ = playYoutube cts.Token youtubeFile |> Async.AwaitTask |> Async.RunSynchronously
+    let _ = play cts.Token youtubeFile |> Async.AwaitTask |> Async.RunSynchronously
     ()
 with
 | exn ->
     log.ErrorFormat("Youtube error: {0}", exn.Message)
+
 
 let rfidLoop() = task {
     while true do

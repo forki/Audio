@@ -4,8 +4,7 @@ exports.download = function (callback, url) {
     const fs = require('fs');
     const ytdl = require('ytdl-core');
 
-    var fileName = 'youtube.flv';
-    console.log("youtube url:" + url);
+    var fileName = '/home/pi/youtube.flv';
     ytdl(url)
       .pipe(fs.createWriteStream(fileName));
 

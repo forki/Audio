@@ -217,7 +217,8 @@ try
     let youtubeURL = "https://www.youtube.com/watch?v=TJAfLE39ZZ8"
     log.InfoFormat("Starting Youtube-Download: {0}", youtubeURL)
     let youtubeFile:string = nodeServices.InvokeExportAsync<string>("./youtube", "download", youtubeURL) |> Async.AwaitTask |> Async.RunSynchronously
-    log.InfoFormat("Downloaded to: {0}", youtubeFile)
+    let youtubeFile = "/home/pi/youtube.flv"
+    log.InfoFormat("Downloaded to: {0}",youtubeFile)
     let _ = play cts2.Token youtubeFile |> Async.AwaitTask |> Async.RunSynchronously
     ()
 with

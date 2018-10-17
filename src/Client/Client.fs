@@ -140,7 +140,6 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
 
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
-open Fable.Import
 open Fable.Core.JsInterop
 
 

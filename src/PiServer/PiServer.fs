@@ -58,6 +58,36 @@ let play (cancellationToken:CancellationToken) (uri:string) = task {
         p.Exited.RemoveHandler handler
 }
 
+
+let youtubeLinks = System.Collections.Generic.Dictionary<_,_>()
+
+let getYoutubeLink youtubeURL = task {
+    match youtubeLinks.TryGetValue youtubeURL with
+    | true, link -> return link
+    | _ ->
+        let lines = System.Collections.Generic.List<_>()
+        let proc = new Process ()
+        let startInfo = new ProcessStartInfo()
+        startInfo.FileName <- "sudo"
+        startInfo.Arguments <- sprintf "youtube-dl -g \"%s\"" youtubeURL
+        startInfo.UseShellExecute <- false
+        startInfo.RedirectStandardOutput <- true
+        startInfo.CreateNoWindow <- true
+        proc.StartInfo <- startInfo
+
+        proc.Start() |> ignore
+        while not proc.StandardOutput.EndOfStream do
+            let! line = proc.StandardOutput.ReadLineAsync()
+            lines.Add line
+        let lines = Seq.toArray lines
+        let link =
+            lines 
+            |> Array.tryFind (fun x -> x.Contains "&mime=audio")
+            |> Option.defaultValue lines.[0]
+        youtubeLinks.Add(youtubeURL,link)
+        return link
+}
+
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
 let stop() = task {
@@ -86,6 +116,14 @@ let executeAction (action:TagAction) =
             let! _ = stop()
             currentTask <- play cts.Token url
             log.InfoFormat( "Playing {0}", url)
+        }
+    | TagAction.PlayYoutube youtubeURL ->
+        task {
+            let! _ = stop()
+            log.InfoFormat("Starting youtube-dl -g {0}", youtubeURL)
+            let! vlink = getYoutubeLink youtubeURL
+            currentTask <- play cts.Token vlink
+            log.InfoFormat( "Playing Youtube {0}", youtubeURL)
         }
     | TagAction.PlayBlobMusik _ ->
         failwithf "Blobs links need to be converted to direct links by the tag server"
@@ -208,48 +246,6 @@ startupTask.Wait()
 let mutable running = null
 
 let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
-
-let cts2 = new CancellationTokenSource()
-
-let youtubeLinks = System.Collections.Generic.Dictionary<_,_>()
-
-let getYoutubeLink youtubeURL =
-    match youtubeLinks.TryGetValue youtubeURL with
-    | true, link -> link
-    | _ ->
-        let lines = System.Collections.Generic.List<_>()
-        let proc = new Process ()
-        let startInfo = new ProcessStartInfo()
-        startInfo.FileName <- "sudo"
-        startInfo.Arguments <- sprintf "youtube-dl -g \"%s\"" youtubeURL
-        startInfo.UseShellExecute <- false
-        startInfo.RedirectStandardOutput <- true
-        startInfo.CreateNoWindow <- true
-        proc.StartInfo <- startInfo
-
-        proc.Start() |> ignore
-        while not proc.StandardOutput.EndOfStream do
-             lines.Add (proc.StandardOutput.ReadLine())
-        let lines = Seq.toArray lines
-        let link =
-            lines 
-            |> Array.tryFind (fun x -> x.Contains "&mime=audio")
-            |> Option.defaultValue lines.[0]
-        youtubeLinks.Add(youtubeURL,link)
-        link
-
-try
-    let youtubeURL = "https://www.youtube.com/watch?v=vfWv7j4FIxQ"
-    log.InfoFormat("Starting youtube-dl -g {0}", youtubeURL)
-    let vlink = getYoutubeLink youtubeURL
-    log.InfoFormat("vlink: {0}", vlink)
-    currentTask <- play cts2.Token vlink
-    ()
-with
-| exn ->
-    log.ErrorFormat("Youtube error: {0}", exn.Message)
-    if not (isNull exn.InnerException) then
-        log.ErrorFormat("Youtube error: {0}", exn.InnerException.Message)
 
 let rfidLoop() = task {
     while true do

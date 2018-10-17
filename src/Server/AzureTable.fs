@@ -156,7 +156,6 @@ let saveTag (userID:string) (tag:Tag) =
     let operation = TableOperation.InsertOrReplace entity
     tagsTable.ExecuteAsync operation
 
-
 let saveRequest (userID:string) (token:string) =
     let entity = DynamicTableEntity()
     entity.PartitionKey <- userID

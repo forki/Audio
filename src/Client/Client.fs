@@ -168,14 +168,18 @@ let view (model : Model) (dispatch : Msg -> unit) =
                         thead [][
                             tr [] [
                                 th [] [ str "Tag"]
+                                th [] [ str "Object"]
                                 th [] [ str "Action"]
+                                th [] [ str "Description"]
                             ]
                         ]
                         tbody [][
                             for tag in model.Tags.Tags ->
                                 tr [ Id tag.Token ] [
                                     td [ ] [ str tag.Token ]
+                                    td [ ] [ str tag.Object ]
                                     td [ ] [ str (sprintf "%O" tag.Action) ]
+                                    td [ ] [ str tag.Description ]
                                 ]
                         ]
                     ]

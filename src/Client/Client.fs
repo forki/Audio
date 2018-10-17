@@ -15,7 +15,7 @@ open Fulma
 open Fable.PowerPack.Fetch
 
 type Model = {
-    Tags: TagList
+    Tags: TagList option
     IsUploading :bool
     Message : string
     File: obj option
@@ -86,7 +86,7 @@ let fetchTagsCmd = Cmd.ofPromise fetchData () (Ok >> TagsLoaded) (Error >> TagsL
 
 let init () : Model * Cmd<Msg> =
     let initialModel = {
-        Tags = { Tags = [||] }
+        Tags = None
         Firmware = None
         File = None
         IsUploading = false
@@ -113,7 +113,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with Firmware = None }, Cmd.none
 
     | TagsLoaded (Ok tags) ->
-        { model with Tags = tags }, Cmd.none
+        { model with Tags = Some tags }, Cmd.none
 
     | TagsLoaded _  ->
         model, Cmd.ofMsg FetchTags
@@ -162,25 +162,31 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     (match model.Firmware with
                      | None -> str "Unknown"
                      | Some fw -> a [ Href fw.Url ] [ str fw.Version ])
-                    h2 [] [str "Available Tags"]
-                    table [][
-                        thead [][
-                            tr [] [
-                                th [] [ str "Tag"]
-                                th [] [ str "Object"]
-                                th [] [ str "Action"]
-                                th [] [ str "Description"]
-                            ]
-                        ]
-                        tbody [][
-                            for tag in model.Tags.Tags ->
-                                tr [ Id tag.Token ] [
-                                    td [ ] [ str tag.Token ]
-                                    td [ ] [ str tag.Object ]
-                                    td [ ] [ str (sprintf "%O" tag.Action) ]
-                                    td [ ] [ str tag.Description ]
+
+                    div [] [
+                        match model.Tags with
+                        | None -> ()
+                        | Some tags ->
+                            yield h2 [] [str "Available Tags"]
+                            yield table [][
+                                thead [][
+                                    tr [] [
+                                        th [] [ str "Tag"]
+                                        th [] [ str "Object"]
+                                        th [] [ str "Action"]
+                                        th [] [ str "Description"]
+                                    ]
                                 ]
-                        ]
+                                tbody [][
+                                    for tag in tags.Tags ->
+                                        tr [ Id tag.Token ] [
+                                            td [ ] [ str tag.Token ]
+                                            td [ ] [ str tag.Object ]
+                                            td [ ] [ str (sprintf "%O" tag.Action) ]
+                                            td [ ] [ str tag.Description ]
+                                        ]
+                                ]
+                            ]
                     ]
                   ] ] ] ]
 

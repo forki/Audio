@@ -167,7 +167,6 @@ Target.create "CreateFirmware" (fun _ ->
     !! (piServerPath </> "*.sh") |> copyInLinuxFormat piDeployDir
 
     !! (piServerPath </> "*.js") |> copyInLinuxFormat publish
-    !! (piServerPath </> "*.js") |> copyInLinuxFormat publish
 
     System.IO.Compression.ZipFile.CreateFromDirectory(piDeployDir, currentFirmware)
 )

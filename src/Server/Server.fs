@@ -4,7 +4,6 @@ open Giraffe
 open Saturn
 open FSharp.Control.Tasks.ContextInsensitive
 open ServerCore.Domain
-open System.Threading.Tasks
 open Thoth.Json.Net
 open ServerCode.Storage
 open Microsoft.WindowsAzure.Storage.Blob
@@ -74,8 +73,6 @@ let uploadEndpoint =
                 return! setBodyFromString txt next ctx
         })
     }
-
-
 
 let tagEndpoint (userID,token) =
     pipeline {

@@ -1,7 +1,6 @@
 {
     "private": true,
     "dependencies": {
-        "mfrc522-rpi": "1.1.0",
-        "ytdl-core": "0.26.3"
+        "mfrc522-rpi": "1.1.0"
     }
 }

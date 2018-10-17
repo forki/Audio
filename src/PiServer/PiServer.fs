@@ -211,17 +211,20 @@ let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServi
 
 Thread.Sleep 10000
 
+let cts2 = new CancellationTokenSource()
+
 try
     let youtubeURL = "https://www.youtube.com/watch?v=TJAfLE39ZZ8"
     log.InfoFormat("Starting Youtube-Download: {0}", youtubeURL)
     let youtubeFile:string = nodeServices.InvokeExportAsync<string>("./youtube", "download", youtubeURL) |> Async.AwaitTask |> Async.RunSynchronously
     log.InfoFormat("Downloaded to: {0}", youtubeFile)
-    let _ = play cts.Token youtubeFile |> Async.AwaitTask |> Async.RunSynchronously
+    let _ = play cts2.Token youtubeFile |> Async.AwaitTask |> Async.RunSynchronously
     ()
 with
 | exn ->
     log.ErrorFormat("Youtube error: {0}", exn.Message)
-
+    if not (isNull exn.InnerException) then
+        log.ErrorFormat("Youtube error: {0}", exn.InnerException.Message)
 
 let rfidLoop() = task {
     while true do

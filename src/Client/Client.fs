@@ -15,7 +15,7 @@ open Fulma
 open Fable.PowerPack.Fetch
 
 type Model = {
-    Tags: TagList 
+    Tags: TagList
     IsUploading :bool
     Message : string
     File: obj option
@@ -65,7 +65,7 @@ let uploadFile (fileName) = promise {
     let formData = Fable.Import.Browser.FormData.Create()
     formData.append("file",fileName)
 
-    let props = 
+    let props =
         [ RequestProperties.Method HttpMethod.POST
           Fetch.requestHeaders [
             // HttpRequestHeaders.Authorization ("Bearer " + model.User.Token)
@@ -93,7 +93,7 @@ let init () : Model * Cmd<Msg> =
         Message = ""
     }
 
-    initialModel, 
+    initialModel,
         Cmd.batch [
             Cmd.ofMsg FetchTags
             fetchFirmwareCmd
@@ -126,16 +126,16 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
 
     | UploadFailed exn ->
         { model with IsUploading = false; Message = exn.Message }, Cmd.none
-    
+
     | Upload ->
         match model.File with
         | None -> model, Cmd.none
         | Some fileName ->
             { model with File = None; IsUploading = true; Message = "Upload started" }, Cmd.ofPromise uploadFile fileName FileUploaded UploadFailed
- 
+
     | Err exn ->
         { model with Message = exn.Message }, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
-        
+
 
 
 open Fable.Helpers.React
@@ -149,9 +149,9 @@ let view (model : Model) (dispatch : Msg -> unit) =
         [ Hero.body [ ]
             [ Container.container [ Container.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                 [ div [] [
-                    input [ 
+                    input [
                         Type "file"
-                        OnChange (fun x -> FileNameChanged (!!x.target?files?(0)) |> dispatch) ] 
+                        OnChange (fun x -> FileNameChanged (!!x.target?files?(0)) |> dispatch) ]
                     br []
                     button [ OnClick (fun _ -> dispatch Upload) ] [str "Upload"]
                     br []
@@ -178,7 +178,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                                     td [ ] [ str (sprintf "%O" tag.Action) ]
                                 ]
                         ]
-                    ] 
+                    ]
                   ] ] ] ]
 
 

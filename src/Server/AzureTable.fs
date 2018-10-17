@@ -5,7 +5,7 @@ open Microsoft.WindowsAzure.Storage.Table
 open System.Threading.Tasks
 open FSharp.Control.Tasks.ContextInsensitive
 
-type AzureConnection = 
+type AzureConnection =
     | AzureConnection of string
     member this.Connect() =
         match this with
@@ -26,7 +26,7 @@ let getTable tableName (connection: CloudStorageAccount) =
                 return! createTableSafe() }
 
         do! createTableSafe()
-        return table 
+        return table
     } |> Async.RunSynchronously
 
 
@@ -119,13 +119,13 @@ let inline getOptionalDoubleProperty (propName:string) (entity: DynamicTableEnti
     | exn -> failwithf "Could not get Double value of property %s for entity %s %s. Message: %s" propName entity.PartitionKey entity.RowKey exn.Message
 
 
-let storageConnectionString = 
+let storageConnectionString =
     let str = System.Environment.GetEnvironmentVariable("CUSTOMCONNSTR_STORAGE")
     if isNull str then
         "UseDevelopmentStorage=true"
     else
         str
-        
+
 let connection = (AzureConnection storageConnectionString).Connect()
 
 let tagsTable = getTable "tags" connection
@@ -138,7 +138,9 @@ open Thoth.Json.Net
 
 let mapTag (entity: DynamicTableEntity) : Tag =
     { Token = entity.RowKey
-      Action = 
+      Description = getStringProperty "Description" entity
+      Object = getStringProperty "Object" entity
+      Action =
         match Decode.fromString TagAction.Decoder (getStringProperty "Action" entity) with
         | Error msg -> failwith msg
         | Ok action -> action }
@@ -149,6 +151,8 @@ let saveTag (userID:string) (tag:Tag) =
     entity.PartitionKey <- userID
     entity.RowKey <- tag.Token
     entity.Properties.["Action"] <- EntityProperty.GeneratePropertyForString (TagAction.Encoder tag.Action |> Encode.toString 0)
+    entity.Properties.["Description"] <- EntityProperty.GeneratePropertyForString tag.Description
+    entity.Properties.["Object"] <- EntityProperty.GeneratePropertyForString tag.Object
     let operation = TableOperation.InsertOrReplace entity
     tagsTable.ExecuteAsync operation
 
@@ -159,7 +163,7 @@ let saveRequest (userID:string) (token:string) =
     entity.RowKey <- System.DateTimeOffset.UtcNow.ToString("o")
     entity.Properties.["Token"] <- EntityProperty.GeneratePropertyForString token
     let operation = TableOperation.InsertOrReplace entity
-    requestsTable.ExecuteAsync operation    
+    requestsTable.ExecuteAsync operation
 
 let getTag (userID:string) token = task {
     let query = TableOperation.Retrieve(userID, token)
@@ -184,6 +188,6 @@ let getAllTagsForUser (userID:string) = task {
             return result @ others }
 
     let! results = getResults null
-    
-    return [| for result in results -> mapTag result |] 
+
+    return [| for result in results -> mapTag result |]
 }

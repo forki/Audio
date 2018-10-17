@@ -23,8 +23,6 @@ type Firmware =
               Url = get.Required.Field "Url" Decode.string }
         )
 
-
-
 [<RequireQualifiedAccess>]
 type TagAction =
 | UnknownTag
@@ -55,7 +53,7 @@ type TagAction =
         Decode.oneOf [
             Decode.field "UnknownTag" (Decode.succeed TagAction.UnknownTag)
             Decode.field "StopMusik" (Decode.succeed TagAction.StopMusik)
-            Decode.field "PlayMusik" Decode.string 
+            Decode.field "PlayMusik" Decode.string
                 |> Decode.map TagAction.PlayMusik
             Decode.field "PlayBlobMusik" Decode.guid
                 |> Decode.map TagAction.PlayBlobMusik
@@ -63,17 +61,23 @@ type TagAction =
 
 type Tag =
     { Token : string
+      Object : string
+      Description : string
       Action : TagAction }
 
     static member Encoder (tag : Tag) =
         Encode.object [
             "Token", Encode.string tag.Token
+            "Description", Encode.string tag.Description
+            "Object", Encode.string tag.Object
             "Action", TagAction.Encoder tag.Action
         ]
 
     static member Decoder =
         Decode.object (fun get ->
             { Token = get.Required.Field "Token" Decode.string
+              Object = get.Required.Field "Object" Decode.string
+              Description = get.Required.Field "Description" Decode.string
               Action = get.Required.Field "Action" TagAction.Decoder }
         )
 

@@ -68,7 +68,7 @@ let uploadEndpoint =
                 let file = form.Files.[0]
                 use stream = file.OpenReadStream()
                 let! tagAction = uploadMusik stream
-                let tag = { Token = System.Guid.NewGuid().ToString(); Action = tagAction }
+                let tag = { Token = System.Guid.NewGuid().ToString(); Action = tagAction; Description = ""; Object = "" }
                 let! saved = AzureTable.saveTag "temp" tag
                 let! tag = mapBlobMusikTag tag
                 let txt = Tag.Encoder tag |> Encode.toString 0
@@ -87,7 +87,7 @@ let tagEndpoint (userID,token) =
             let! tag =
                 match tag with
                 | Some t -> mapBlobMusikTag t
-                | _ -> task { return { Token = token; Action = TagAction.UnknownTag } }
+                | _ -> task { return { Token = token; Action = TagAction.UnknownTag; Description = ""; Object = "" } }
 
             let txt = Tag.Encoder tag |> Encode.toString 0
             return! setBodyFromString txt next ctx
@@ -99,11 +99,6 @@ let allTagsEndpoint userID =
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             let! tags = AzureTable.getAllTagsForUser userID
-            let! tags =
-                tags
-                |> Array.map mapBlobMusikTag
-                |> Task.WhenAll
-
             let txt = TagList.Encoder { Tags = tags } |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })

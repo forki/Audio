@@ -79,7 +79,7 @@ let executeAction (action:TagAction) =
     | TagAction.StopMusik ->
         task {
             let! _ = stop()
-            log.InfoFormat "Stopped"
+            log.InfoFormat "Musik stopped"
         }
     | TagAction.PlayMusik url ->
         task {
@@ -99,7 +99,10 @@ let executeTag (tag:string) = task {
 
         match Decode.fromString Tag.Decoder result with
         | Error msg -> return failwith msg
-        | Ok tag -> return! executeAction tag.Action
+        | Ok tag ->
+            log.InfoFormat( "Object: {0}:", tag.Object)
+            log.InfoFormat( "Description: {0}", tag.Description)
+            return! executeAction tag.Action
     with
     | exn ->
         log.ErrorFormat("Token action error: {0}", exn.Message)
@@ -129,7 +132,7 @@ let checkFirmware () = task {
 
     match Decode.fromString Firmware.Decoder result with
     | Error msg ->
-        log.InfoFormat("Decoder error: {0}", msg)
+        log.ErrorFormat("Decoder error: {0}", msg)
         return failwith msg
     | Ok firmware ->
         try

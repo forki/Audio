@@ -249,6 +249,13 @@ Target.create "PrepareRelease" (fun _ ->
                 FileName = "docker"
                 Arguments = sprintf "tag %s/%s %s/%s:%s" dockerUser dockerImageName dockerUser dockerImageName release.NugetVersion}) TimeSpan.MaxValue
     if result <> 0 then failwith "Docker tag failed"
+
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = "docker"
+                Arguments = sprintf "tag %s/%s %s/%s:latest" dockerUser dockerImageName dockerUser dockerImageName}) TimeSpan.MaxValue
+    if result <> 0 then failwith "Docker tag latest failed"
 )
 
 #load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
@@ -279,8 +286,16 @@ Target.create "Deploy" (fun _ ->
             { info with
                 FileName = "docker"
                 WorkingDirectory = deployDir
-                Arguments = sprintf "push %s/%s" dockerUser dockerImageName }) TimeSpan.MaxValue
+                Arguments = sprintf "push %s/%s:%s" dockerUser dockerImageName release.NugetVersion }) TimeSpan.MaxValue
     if result <> 0 then failwith "Docker push failed"
+
+    let result =
+        Process.execSimple (fun info ->
+            { info with
+                FileName = "docker"
+                WorkingDirectory = deployDir
+                Arguments = sprintf "push %s/%s:latest" dockerUser dockerImageName }) TimeSpan.MaxValue
+    if result <> 0 then failwith "Docker push latest failed"
 )
 
 

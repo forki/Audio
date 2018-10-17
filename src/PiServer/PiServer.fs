@@ -233,7 +233,9 @@ let playYoutube  (cancellationToken:CancellationToken) (uri:string) = task {
         p.Exited.RemoveHandler handler
 }
 
-let youtubeFile:string = nodeServices.InvokeExportAsync<string>("./youtube", "download", "https://www.youtube.com/watch?v=4hDvLgFIuR8") |> Async.AwaitTask |> Async.RunSynchronously
+let youtubeURL = "https://www.youtube.com/watch?v=TJAfLE39ZZ8"
+log.InfoFormat("Starting Youtube-Download: {0}", youtubeURL)
+let youtubeFile:string = nodeServices.InvokeExportAsync<string>("./youtube", "download", youtubeURL) |> Async.AwaitTask |> Async.RunSynchronously
 log.InfoFormat("Youtube-Download: {0}", youtubeFile)
 let _ = playYoutube cts.Token youtubeFile |> Async.AwaitTask |> Async.RunSynchronously
 

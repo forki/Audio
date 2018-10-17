@@ -171,19 +171,15 @@ let view (model : Model) (dispatch : Msg -> unit) =
                             yield table [][
                                 thead [][
                                     tr [] [
-                                        th [] [ str "Tag"]
                                         th [] [ str "Object"]
-                                        th [] [ str "Action"]
                                         th [] [ str "Description"]
                                     ]
                                 ]
                                 tbody [][
                                     for tag in tags.Tags ->
                                         tr [ Id tag.Token ] [
-                                            td [ ] [ str tag.Token ]
-                                            td [ ] [ str tag.Object ]
-                                            td [ ] [ str (sprintf "%O" tag.Action) ]
-                                            td [ ] [ str tag.Description ]
+                                            td [ Title tag.Token ] [ str tag.Object ]
+                                            td [ Title (sprintf "%O" tag.Action) ] [ str tag.Description ]
                                         ]
                                 ]
                             ]

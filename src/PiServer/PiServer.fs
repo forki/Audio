@@ -61,13 +61,11 @@ let play  (cancellationToken:CancellationToken) (uri:string) = task {
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
 let stop() = task {
-    log.InfoFormat "trying to kill"
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
-            log.InfoFormat "kill omxplaxer"
+            log.InfoFormat "stopping omxplaxer"
             try p.Kill() with _ -> log.WarnFormat "couldn't kill omxplayer"
     cts.Cancel()
-    return "Test"
 }
 
 let mutable currentTask = null
@@ -76,31 +74,35 @@ let executeAction (action:TagAction) =
     match action with
     | TagAction.UnknownTag ->
         task {
-            return "Unknown Tag"
+            log.WarnFormat "Unknown Tag"
         }
     | TagAction.StopMusik ->
         task {
             let! _ = stop()
-            return "Stopped"
+            log.InfoFormat "Stopped"
         }
     | TagAction.PlayMusik url ->
         task {
-            let! r = stop()
+            let! _ = stop()
             currentTask <- play cts.Token url
-            return (sprintf "Playing %s" url)
+            log.InfoFormat( "Playing {0}", url)
         }
     | TagAction.PlayBlobMusik _ ->
         failwithf "Blobs links need to be converted to direct links by the tag server"
 
 
 let executeTag (tag:string) = task {
-    use webClient = new System.Net.WebClient()
-    let tagsUrl tag = sprintf @"%s/api/tags/%s/%s" tagServer userID tag
-    let! result = webClient.DownloadStringTaskAsync(System.Uri (tagsUrl tag))
+    try
+        use webClient = new System.Net.WebClient()
+        let tagsUrl tag = sprintf @"%s/api/tags/%s/%s" tagServer userID tag
+        let! result = webClient.DownloadStringTaskAsync(System.Uri (tagsUrl tag))
 
-    match Decode.fromString Tag.Decoder result with
-    | Error msg -> return failwith msg
-    | Ok tag -> return! executeAction tag.Action
+        match Decode.fromString Tag.Decoder result with
+        | Error msg -> return failwith msg
+        | Ok tag -> return! executeAction tag.Action
+    with
+    | exn ->
+        log.ErrorFormat("Token action error: {0}", exn.Message)
 }
 
 let runFirmwareUpdate() =
@@ -155,16 +157,20 @@ let checkFirmware () = task {
 }
 
 let executeStartupActions () = task {
-    use webClient = new System.Net.WebClient()
-    let url = sprintf @"%s/api/startup" tagServer
-    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+    try
+        use webClient = new System.Net.WebClient()
+        let url = sprintf @"%s/api/startup" tagServer
+        let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
-    match Decode.fromString (Decode.list TagAction.Decoder) result with
-    | Error msg -> return failwith msg
-    | Ok actions ->
-        for t in actions do
-            let! _ = executeAction t
-            ()
+        match Decode.fromString (Decode.list TagAction.Decoder) result with
+        | Error msg -> return failwith msg
+        | Ok actions ->
+            for t in actions do
+                let! _ = executeAction t
+                ()
+    with
+    | exn ->
+        log.ErrorFormat("Startup error: {0}", exn.Message)
 }
 
 let webApp = router {
@@ -208,7 +214,7 @@ let rfidLoop() = task {
             let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
             ()
         else
-            log.InfoFormat("Read: {0}", token)
+            log.InfoFormat("RFID/NFC: {0}", token)
             running <- executeTag token
             let mutable waiting = true
             while waiting do
@@ -216,11 +222,12 @@ let rfidLoop() = task {
                 if running.IsCompleted then
                     for p in getMusikPlayerProcesses() do
                         if p.HasExited then
-                            log.InfoFormat "omxplayer was shut down"
+                            log.InfoFormat "omxplayer shut down"
                             waiting <- false
+
                 let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
                 if newToken <> token then
-                    log.InfoFormat "tag was removed from reader"
+                    log.InfoFormat("RFID/NFC {0} was removed from reader", token)
                     waiting <- false
 
             let! _ = stop()

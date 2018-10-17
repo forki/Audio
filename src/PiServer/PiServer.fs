@@ -209,16 +209,31 @@ let mutable running = null
 
 let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-Thread.Sleep 10000
-
 let cts2 = new CancellationTokenSource()
 
+let getYoutubeLink youtubeURL =
+    let lines = System.Collections.Generic.List<_>()
+    let proc = new Process ()
+    let startInfo = new ProcessStartInfo()
+    startInfo.FileName <- "sudo"
+    startInfo.Arguments <- sprintf "youtube-dl -g \"%s\"" youtubeURL
+    startInfo.UseShellExecute <- false
+    startInfo.RedirectStandardOutput <- true
+    startInfo.CreateNoWindow <- true
+    proc.StartInfo <- startInfo
+
+    proc.Start() |> ignore
+    while not proc.StandardOutput.EndOfStream do
+         lines.Add (proc.StandardOutput.ReadLine())
+    lines.[0]
+
 try
-    let youtubeURL = "https://www.youtube.com/watch?v=TJAfLE39ZZ8"
-    log.InfoFormat("Starting Youtube-Download: {0}", youtubeURL)
-    let youtubeFile:string = nodeServices.InvokeExportAsync<string>("./youtube", "download", youtubeURL) |> Async.AwaitTask |> Async.RunSynchronously
-    log.InfoFormat("Downloaded to: {0}", youtubeFile)
-    currentTask <- play cts2.Token "https://r4---sn-4g5e6ne6.googlevideo.com/videoplayback?ei=kCbHW8OpDc_lgAfb1Y34Cw&c=WEB&key=yt6&mm=31%2C26&ipbits=0&mn=sn-4g5e6ne6%2Csn-5hnekn7z&pl=25&mt=1539778069&dur=250.321&mv=m&initcwndbps=928750&ms=au%2Conr&itag=251&sparams=clen%2Cdur%2Cei%2Cgir%2Cid%2Cinitcwndbps%2Cip%2Cipbits%2Citag%2Ckeepalive%2Clmt%2Cmime%2Cmm%2Cmn%2Cms%2Cmv%2Cpl%2Crequiressl%2Csource%2Cexpire&id=o-AFJ3Ym8J435Qob5eRIvlY1_z1BUJS3K9epWSpVs6Y5ga&fvip=4&keepalive=yes&requiressl=yes&mime=audio%2Fwebm&gir=yes&lmt=1537609986566589&expire=1539799792&source=youtube&ip=2003%3Ae5%3Adbcb%3Aa900%3A928b%3Ad5a5%3Ae38c%3A878d&clen=4064541&signature=B682E7F5BE3CC05B3C9119B38A699783BABF0A20.297295EB09411EBF65AB363B56BE4868DA5C9002&ratebypass=yes"
+    let youtubeURL = "https://www.youtube.com/watch?v=fUYaosyR4bE"
+    log.InfoFormat("Starting youtube-dl -g {0}", youtubeURL)
+    //let youtubeFile:string = nodeServices.InvokeExportAsync<string>("./youtube", "download", youtubeURL) |> Async.AwaitTask |> Async.RunSynchronously
+    let vlink = getYoutubeLink youtubeURL
+    log.InfoFormat("vlink: {0}", vlink)
+    currentTask <- play cts2.Token vlink
     ()
 with
 | exn ->

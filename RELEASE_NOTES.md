@@ -1,5 +1,8 @@
 # Release Notes
 
+## 0.10.0 - 2018-10-18
+* Use better UI
+
 ## 0.9.7 - 2018-10-18
 * Automatic firmware update
 

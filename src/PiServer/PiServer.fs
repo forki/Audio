@@ -37,6 +37,7 @@ let mutable runningProcess = null
 let mutable globalStop = false
 
 let play (uris:string []) = task {
+    let mutable i = 1
     for mediaFile in uris do
         if not globalStop then
             let p = new System.Diagnostics.Process()
@@ -50,7 +51,8 @@ let play (uris:string []) = task {
 
             p.Exited.AddHandler handler
             try
-                log.InfoFormat( "Starting omxplayer with {0}", mediaFile)
+                log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
+                i <- i + 1
                 startInfo.FileName <- "omxplayer"
                 startInfo.Arguments <- mediaFile
                 p.StartInfo <- startInfo

@@ -280,8 +280,12 @@ let rfidLoop() = task {
 
                 let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
                 if newToken <> token then
-                    log.InfoFormat("RFID/NFC {0} was removed from reader", token)
-                    waiting <- false
+                    // recheck in 2 seconds to make it a bit more stable
+                    let! _ = Task.Delay(TimeSpan.FromSeconds 2.)
+                    let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
+                    if newToken <> token then
+                        log.InfoFormat("RFID/NFC {0} was removed from reader", token)
+                        waiting <- false
 
             let! _ = stop ()
             ()

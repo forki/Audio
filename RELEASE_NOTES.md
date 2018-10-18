@@ -1,6 +1,6 @@
 # Release Notes
 
-## 0.8.0 - 2018-10-18
+## 0.8.1 - 2018-10-18
 * Play youtube playlists
 
 ## 0.7.15 - 2018-10-17

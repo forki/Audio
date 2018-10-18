@@ -49,10 +49,10 @@ if [ -e $DEFAULTS ]; then
 
         log_action_begin_msg "Updating $DAEMONHOME "
         log_action_cont_msg " Backup node_modules "
-        cp -r $DAEMONHOME/node_modules $SOURCEPATH/
+        cp -a $DAEMONHOME/node_modules $SOURCEPATH/
 
         log_action_cont_msg " installing new version to $DAEMONHOME "
-        rm -R $DAEMONHOME && cp -r $SOURCEPATH/. $DAEMONHOME
+        rm -R $DAEMONHOME && cp -a $SOURCEPATH/. $DAEMONHOME
         log_action_end_msg $?
 
         log_action_begin_msg "Updating node_modules"

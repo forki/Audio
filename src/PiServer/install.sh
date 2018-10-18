@@ -51,7 +51,7 @@ if [ -e  $SCRIPTROOT/$PROJECTNAME ]; then
     fi
 
     log_action_begin_msg "Install application into $DAEMONHOME "
-    cp -r $SOURCEPATH/. $DAEMONHOME
+    cp -a $SOURCEPATH/. $DAEMONHOME
     cp  $SCRIPTROOT/$PROJECTNAME /etc/init.d/
     log_action_end_msg $?
 

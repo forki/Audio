@@ -34,28 +34,29 @@ let port = 8086us
 let cts = new CancellationTokenSource()
 let mutable runningProcess = null
 
-let play (cancellationToken:CancellationToken) (uri:string) = task {
-    let mediaFile = uri
-    let p = new System.Diagnostics.Process()
-    runningProcess <- p
-    let startInfo = System.Diagnostics.ProcessStartInfo()
-    p.EnableRaisingEvents <- true
-    let tcs = new TaskCompletionSource<obj>()
-    let handler = System.EventHandler(fun _ args ->
-        tcs.TrySetResult(null) |> ignore
-    )
+let play (cancellationToken:CancellationToken) (uris:string []) = task {
+    for mediaFile in uris do
+        if not cancellationToken.IsCancellationRequested then
+            let p = new System.Diagnostics.Process()
+            runningProcess <- p
+            let startInfo = System.Diagnostics.ProcessStartInfo()
+            p.EnableRaisingEvents <- true
+            let tcs = new TaskCompletionSource<obj>()
+            let handler = System.EventHandler(fun _ args ->
+                tcs.TrySetResult(null) |> ignore
+            )
 
-    p.Exited.AddHandler handler
-    try
-        cancellationToken.Register(fun () -> tcs.SetCanceled()) |> ignore
-        startInfo.FileName <- "omxplayer"
-        startInfo.Arguments <- mediaFile
-        p.StartInfo <- startInfo
-        let _ = p.Start()
-        let! _ = tcs.Task
-        return "Started"
-    finally
-        p.Exited.RemoveHandler handler
+            p.Exited.AddHandler handler
+            try
+                cancellationToken.Register(fun () -> tcs.SetCanceled()) |> ignore
+                startInfo.FileName <- "omxplayer"
+                startInfo.Arguments <- mediaFile
+                p.StartInfo <- startInfo
+                let _ = p.Start()
+                let! _ = tcs.Task
+                ()
+            finally
+                p.Exited.RemoveHandler handler
 }
 
 
@@ -101,11 +102,11 @@ let getYoutubeLink youtubeURL : Task<string []> = task {
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
 let stop() = task {
+    cts.Cancel()
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
             log.InfoFormat "stopping omxplaxer"
             try p.Kill() with _ -> log.WarnFormat "couldn't kill omxplayer"
-    cts.Cancel()
 }
 
 let mutable currentTask = null
@@ -124,18 +125,15 @@ let executeAction (action:TagAction) =
     | TagAction.PlayMusik url ->
         task {
             let! _ = stop()
-            currentTask <- play cts.Token url
+            currentTask <- play cts.Token [|url|]
             log.InfoFormat( "Playing {0}", url)
         }
     | TagAction.PlayYoutube youtubeURL ->
         task {
             let! _ = stop()
             let! vlinks = getYoutubeLink youtubeURL
-            match vlinks |> Array.tryHead with
-            | Some vlink ->
-                currentTask <- play cts.Token vlink
-                log.InfoFormat( "Playing Youtube {0}", youtubeURL)
-            | _ -> ()
+            log.InfoFormat( "Playing Youtube {0}", youtubeURL)
+            currentTask <- play cts.Token vlinks
         }
     | TagAction.PlayBlobMusik _ ->
         failwithf "Blobs links need to be converted to direct links by the tag server"
@@ -150,7 +148,7 @@ let executeTag (tag:string) = task {
         match Decode.fromString Tag.Decoder result with
         | Error msg -> return failwith msg
         | Ok tag ->
-            log.InfoFormat( "Object: {0}:", tag.Object)
+            log.InfoFormat( "Object: {0}", tag.Object)
             log.InfoFormat( "Description: {0}", tag.Description)
             return! executeAction tag.Action
     with

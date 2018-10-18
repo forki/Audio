@@ -1,5 +1,8 @@
 # Release Notes
 
+## 0.9.0 - 2018-10-18
+* Automatic firmware update
+
 ## 0.8.5 - 2018-10-18
 * Play youtube playlists
 

@@ -27,6 +27,7 @@ let configureLogging() =
     log
 
 
+let firmwareUpdateInterval = TimeSpan.FromHours 1.
 let log = configureLogging()
 
 let port = 8086us
@@ -170,6 +171,8 @@ let runFirmwareUpdate() =
     p.StartInfo <- startInfo
     p.Start() |> ignore
 
+let mutable nextFirmwareCheck = DateTimeOffset.MinValue
+
 let checkFirmware () = task {
     use webClient = new System.Net.WebClient()
     System.Net.ServicePointManager.SecurityProtocol <-
@@ -186,6 +189,7 @@ let checkFirmware () = task {
         return failwith msg
     | Ok firmware ->
         try
+            nextFirmwareCheck <- DateTimeOffset.UtcNow.Add firmwareUpdateInterval
             if firmware.Version <> ReleaseNotes.Version then
                 let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".zip")
                 log.InfoFormat("Starting download of {0}", firmware.Url)
@@ -259,13 +263,18 @@ let mutable running = null
 
 let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
+
 let rfidLoop() = task {
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
 
         if String.IsNullOrEmpty token then
-            let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
-            ()
+            if nextFirmwareCheck < DateTimeOffset.UtcNow then
+                let! _ = checkFirmware()
+                ()
+            else
+                let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
+                ()
         else
             log.InfoFormat("RFID/NFC: {0}", token)
             running <- executeTag token

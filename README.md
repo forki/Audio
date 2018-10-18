@@ -105,6 +105,7 @@ tailf PiServer/publish/logs/clientlog.log
 
 If you want to run custom firmware on the Raspberry Pi then make changes in the `src/PiServer` project and do the following:
 
+* Make sure the latest version in `RELEASE_NOTES.md` is higher than the latest released version.
 * Run `build.cmd CreateFirmware`
 * Copy your firmware to the Rasperry Pi - e.g. `pscp -r temp/ pi@192.168.178.28:/home/pi/` (You need to use the IP of your Raspberry Pi)
-* SSH into your PI and run `sudo service PiServer restart`
+* SSH into your PI and run `sudo service PiServer restart`. This process will take a while and put your firmware in place.

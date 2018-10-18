@@ -100,3 +100,11 @@ network={
 ### Checking logs
 
 tailf PiServer/publish/logs/clientlog.log
+
+### Testing self-built Firmware
+
+If you want to run custom firmware on the Raspberry Pi then make changes in the `src/PiServer` project and do the following:
+
+* Run `build.cmd CreateFirmware`
+* Copy your firmware to the Rasperry Pi - e.g. `pscp -r temp/ pi@192.168.178.28:/home/pi/` (You need to use the IP of your Raspberry Pi)
+* SSH into your PI and run `sudo service PiServer restart`

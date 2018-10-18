@@ -173,6 +173,8 @@ let runFirmwareUpdate() =
 
 let mutable nextFirmwareCheck = DateTimeOffset.MinValue
 
+let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
+
 let checkFirmware () = task {
     use webClient = new System.Net.WebClient()
     System.Net.ServicePointManager.SecurityProtocol <-
@@ -195,11 +197,11 @@ let checkFirmware () = task {
                 log.InfoFormat("Starting download of {0}", firmware.Url)
                 do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
                 log.InfoFormat "Download done."
-                let target = System.IO.Path.GetFullPath "/home/pi/firmware"
-                if System.IO.Directory.Exists target then
-                    System.IO.Directory.Delete(target,true)
-                System.IO.Directory.CreateDirectory(target) |> ignore
-                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, target)
+
+                if System.IO.Directory.Exists firmwareTarget then
+                    System.IO.Directory.Delete(firmwareTarget,true)
+                System.IO.Directory.CreateDirectory(firmwareTarget) |> ignore
+                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, firmwareTarget)
                 System.IO.File.Delete localFileName
                 runFirmwareUpdate()
                 while true do
@@ -207,6 +209,8 @@ let checkFirmware () = task {
                     do! Task.Delay 3000
                     ()
             else
+                if System.IO.Directory.Exists firmwareTarget then
+                    System.IO.Directory.Delete(firmwareTarget,true)
                 log.InfoFormat( "Firmware {0} is uptodate.", ReleaseNotes.Version)
         with
         | exn ->

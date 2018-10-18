@@ -128,13 +128,12 @@ let executeAction (action:TagAction) =
             let! _ = stop ()
             globalStop <- false
             currentTask <- play [|url|]
-            log.InfoFormat( "Playing {0}", url)
         }
     | TagAction.PlayYoutube youtubeURL ->
         task {
             let! _ = stop ()
-            let! vlinks = getYoutubeLink youtubeURL
             log.InfoFormat( "Playing Youtube {0}", youtubeURL)
+            let! vlinks = getYoutubeLink youtubeURL
             globalStop <- false
             currentTask <- play vlinks
         }

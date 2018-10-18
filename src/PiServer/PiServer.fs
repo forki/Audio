@@ -83,6 +83,8 @@ let discoverYoutubeLink (youtubeURL:string) = task {
         lines
         |> Array.filter (fun x -> x.Contains "&mime=audio")
 
+    for vLink in links do
+        log.InfoFormat( "Youtube audio link detected: {0}", vLink)
     return links
 }
 

@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "0.9.0"
+let Version = "0.9.1"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 0.9.0 - 2018-10-18
+## 0.9.1 - 2018-10-18
 * Automatic firmware update
 
 ## 0.8.5 - 2018-10-18

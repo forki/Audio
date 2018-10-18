@@ -178,8 +178,11 @@ let view (model : Model) (dispatch : Msg -> unit) =
                                 tbody [][
                                     for tag in tags.Tags ->
                                         tr [ Id tag.Token ] [
-                                            td [ Title tag.Token ] [ str tag.Object ]
-                                            td [ Title (sprintf "%O" tag.Action) ] [ str tag.Description ]
+                                            yield td [ Title tag.Token ] [ str tag.Object ]
+                                            match tag.Action with
+                                            | TagAction.PlayMusik url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
+                                            | TagAction.PlayYoutube url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
+                                            | _ -> yield td [ Title (sprintf "%O" tag.Action) ] [ str tag.Description ]
                                         ]
                                 ]
                             ]

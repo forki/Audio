@@ -4,12 +4,10 @@ group Server
 
     nuget FSharp.Core
     nuget Saturn
-    nuget Microsoft.AspNetCore.NodeServices
 
     nuget Thoth.Json.Net
     nuget Thoth.Json
     nuget WindowsAzure.Storage
-    nuget log4net
 
 group Client
     storage: none
@@ -38,6 +36,19 @@ group Build
     nuget Octokit
     github fsharp/FAKE modules/Octokit/Octokit.fsx
     nuget Fake.IO.FileSystem
+
+group Pi
+    storage: none
+    source https://api.nuget.org/v3/index.json
+
+    nuget FSharp.Core
+    nuget Saturn
+    nuget Microsoft.AspNetCore.NodeServices
+
+    nuget Thoth.Json.Net
+    nuget Thoth.Json
+    nuget log4net
+    nuget Unosquare.Raspberry.IO
 
 
 group Test

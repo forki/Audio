@@ -1,7 +1,8 @@
-group Server
+group Pi
     FSharp.Core
     Saturn
     Microsoft.AspNetCore.NodeServices
     Thoth.Json.Net
     Thoth.Json
     log4net
+    Unosquare.Raspberry.IO

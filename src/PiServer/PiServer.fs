@@ -59,33 +59,41 @@ let play (cancellationToken:CancellationToken) (uri:string) = task {
 }
 
 
-let youtubeLinks = System.Collections.Generic.Dictionary<_,_>()
+let youtubeLinks = System.Collections.Concurrent.ConcurrentDictionary<_,_>()
 
-let getYoutubeLink youtubeURL = task {
+let discoverYoutubeLink (youtubeURL:string) = task {
+    log.InfoFormat("Starting youtube-dl -g {0}", youtubeURL)
+    let lines = System.Collections.Generic.List<_>()
+    let proc = new Process ()
+    let startInfo = new ProcessStartInfo()
+    startInfo.FileName <- "sudo"
+    startInfo.Arguments <- sprintf "youtube-dl -g \"%s\"" youtubeURL
+    startInfo.UseShellExecute <- false
+    startInfo.RedirectStandardOutput <- true
+    startInfo.CreateNoWindow <- true
+    proc.StartInfo <- startInfo
+
+    proc.Start() |> ignore
+    while not proc.StandardOutput.EndOfStream do
+        let! line = proc.StandardOutput.ReadLineAsync()
+        lines.Add line
+
+    let lines = Seq.toArray lines
+    let links =
+        lines
+        |> Array.filter (fun x -> x.Contains "&mime=audio")
+
+    return links
+}
+
+
+let getYoutubeLink youtubeURL : Task<string []> = task {
     match youtubeLinks.TryGetValue youtubeURL with
-    | true, link -> return link
+    | true, vlinks -> return vlinks
     | _ ->
-        let lines = System.Collections.Generic.List<_>()
-        let proc = new Process ()
-        let startInfo = new ProcessStartInfo()
-        startInfo.FileName <- "sudo"
-        startInfo.Arguments <- sprintf "youtube-dl -g \"%s\"" youtubeURL
-        startInfo.UseShellExecute <- false
-        startInfo.RedirectStandardOutput <- true
-        startInfo.CreateNoWindow <- true
-        proc.StartInfo <- startInfo
-
-        proc.Start() |> ignore
-        while not proc.StandardOutput.EndOfStream do
-            let! line = proc.StandardOutput.ReadLineAsync()
-            lines.Add line
-        let lines = Seq.toArray lines
-        let link =
-            lines 
-            |> Array.tryFind (fun x -> x.Contains "&mime=audio")
-            |> Option.defaultValue lines.[0]
-        youtubeLinks.Add(youtubeURL,link)
-        return link
+        let! vlinks = discoverYoutubeLink youtubeURL
+        youtubeLinks.AddOrUpdate(youtubeURL,vlinks,Func<_,_,_>(fun _ _ -> vlinks)) |> ignore
+        return vlinks
 }
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
@@ -120,10 +128,12 @@ let executeAction (action:TagAction) =
     | TagAction.PlayYoutube youtubeURL ->
         task {
             let! _ = stop()
-            log.InfoFormat("Starting youtube-dl -g {0}", youtubeURL)
-            let! vlink = getYoutubeLink youtubeURL
-            currentTask <- play cts.Token vlink
-            log.InfoFormat( "Playing Youtube {0}", youtubeURL)
+            let! vlinks = getYoutubeLink youtubeURL
+            match vlinks |> Array.tryHead with
+            | Some vlink ->
+                currentTask <- play cts.Token vlink
+                log.InfoFormat( "Playing Youtube {0}", youtubeURL)
+            | _ -> ()
         }
     | TagAction.PlayBlobMusik _ ->
         failwithf "Blobs links need to be converted to direct links by the tag server"

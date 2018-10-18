@@ -31,12 +31,13 @@ let log = configureLogging()
 
 let port = 8086us
 
-let cts = new CancellationTokenSource()
 let mutable runningProcess = null
 
-let play (cancellationToken:CancellationToken) (uris:string []) = task {
+let mutable globalStop = false
+
+let play (uris:string []) = task {
     for mediaFile in uris do
-        if not cancellationToken.IsCancellationRequested then
+        if not globalStop then
             let p = new System.Diagnostics.Process()
             runningProcess <- p
             let startInfo = System.Diagnostics.ProcessStartInfo()
@@ -48,7 +49,7 @@ let play (cancellationToken:CancellationToken) (uris:string []) = task {
 
             p.Exited.AddHandler handler
             try
-                cancellationToken.Register(fun () -> tcs.SetCanceled()) |> ignore
+                log.InfoFormat( "Starting omxplayer with {0}", mediaFile)
                 startInfo.FileName <- "omxplayer"
                 startInfo.Arguments <- mediaFile
                 p.StartInfo <- startInfo
@@ -101,8 +102,8 @@ let getYoutubeLink youtubeURL : Task<string []> = task {
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
-let stop() = task {
-    cts.Cancel()
+let stop () = task {
+    globalStop <- true
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
             log.InfoFormat "stopping omxplaxer"
@@ -119,21 +120,23 @@ let executeAction (action:TagAction) =
         }
     | TagAction.StopMusik ->
         task {
-            let! _ = stop()
+            let! _ = stop ()
             log.InfoFormat "Musik stopped"
         }
     | TagAction.PlayMusik url ->
         task {
-            let! _ = stop()
-            currentTask <- play cts.Token [|url|]
+            let! _ = stop ()
+            globalStop <- false
+            currentTask <- play [|url|]
             log.InfoFormat( "Playing {0}", url)
         }
     | TagAction.PlayYoutube youtubeURL ->
         task {
-            let! _ = stop()
+            let! _ = stop ()
             let! vlinks = getYoutubeLink youtubeURL
             log.InfoFormat( "Playing Youtube {0}", youtubeURL)
-            currentTask <- play cts.Token vlinks
+            globalStop <- false
+            currentTask <- play vlinks
         }
     | TagAction.PlayBlobMusik _ ->
         failwithf "Blobs links need to be converted to direct links by the tag server"
@@ -281,7 +284,7 @@ let rfidLoop() = task {
                     log.InfoFormat("RFID/NFC {0} was removed from reader", token)
                     waiting <- false
 
-            let! _ = stop()
+            let! _ = stop ()
             ()
 }
 

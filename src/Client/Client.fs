@@ -10,22 +10,13 @@ open Thoth.Json
 open Thoth.Json.Net
 #endif
 
-open Elmish
-open Elmish.React
-
+open System
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Fable.PowerPack.Fetch
-
-
 open Fulma
-
 open Fulma.FontAwesome
-
-
 open ServerCore.Domain
-open Fulma
-open Fable.PowerPack.Fetch
 
 type Model = {
     Tags: TagList option
@@ -33,12 +24,16 @@ type Model = {
     Message : string
     File: obj option
     Firmware: Firmware option
+    ShownTags : Tag []
+    FilterText : string
 }
 
 type Msg =
 | FetchTags
 | FileNameChanged of obj
+| FilterChanged of string
 | Upload
+| RefreshList
 | FileUploaded of Tag
 | UploadFailed of exn
 | TagsLoaded of Result<TagList, exn>
@@ -103,7 +98,9 @@ let init () : Model * Cmd<Msg> =
         Firmware = None
         File = None
         IsUploading = false
+        FilterText = ""
         Message = ""
+        ShownTags = [||]
     }
 
     initialModel,
@@ -119,6 +116,23 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | FetchTags ->
         model, fetchTagsCmd
 
+    | FilterChanged txt ->
+        { model with FilterText = txt }, Cmd.ofMsg RefreshList
+
+    | RefreshList ->
+        let tags =
+            match model.Tags with
+            | None -> [||]
+            | Some tagList ->
+                if String.IsNullOrWhiteSpace model.FilterText then
+                    tagList.Tags
+                else
+                    let s = model.FilterText.ToLower()
+                    tagList.Tags
+                    |> Array.filter (fun x -> x.Description.ToLower().Contains(s) || x.Object.ToLower().Contains(s) || x.Token.Contains(s))
+
+        { model with ShownTags = tags }, Cmd.none
+
     | FirmwareLoaded (Ok tags) ->
         { model with Firmware = Some tags }, Cmd.none
 
@@ -126,7 +140,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with Firmware = None }, Cmd.none
 
     | TagsLoaded (Ok tags) ->
-        { model with Tags = Some tags }, Cmd.none
+        { model with Tags = Some tags }, Cmd.ofMsg RefreshList
 
     | TagsLoaded _  ->
         model, Cmd.ofMsg FetchTags
@@ -135,10 +149,10 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with File = Some file }, Cmd.none
 
     | FileUploaded tag ->
-        { model with IsUploading = false; Message = "Done" }, Cmd.none
+        { model with IsUploading = false; Message = "Done" }, Cmd.ofMsg FetchTags
 
     | UploadFailed exn ->
-        { model with IsUploading = false; Message = exn.Message }, Cmd.none
+        { model with IsUploading = false; Message = exn.Message }, Cmd.ofMsg FetchTags
 
     | Upload ->
         match model.File with
@@ -225,34 +239,38 @@ let filterBox (model : Model) (dispatch : Msg -> unit) =
         [ Field.div [ Field.IsGrouped ]
             [ Control.p [ Control.IsExpanded ]
                 [ Input.text
-                    [ Input.Value (show model.Tags) ] ]
+                    [ Input.OnChange (fun x -> dispatch (FilterChanged x.Value))
+                      Input.Value (show model.Tags) ] ]
               Control.p [ ]
                 [ Button.a
                     [ Button.Color IsPrimary
-                      Button.OnClick (fun _ -> ()) ]
+                      Button.OnClick (fun _ -> dispatch FetchTags) ]
                     [ str "Search" ] ] ] ]
 
-let tagsTable (tagList:TagList option) =
-    match tagList with
+let tagsTable (model : Model) (dispatch : Msg -> unit) =
+    match model.Tags with
     | None ->
         div [] []
-    | Some tagList ->
-        table [][
-            thead [][
-                tr [] [
-                    th [] [ str "Object"]
-                    th [] [ str "Description"]
-                ]
-            ]
-            tbody [][
-                for tag in tagList.Tags ->
-                    tr [ Id tag.Token ] [
-                        yield td [ Title tag.Token ] [ str tag.Object ]
-                        match tag.Action with
-                        | TagAction.PlayMusik url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
-                        | TagAction.PlayYoutube url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
-                        | _ -> yield td [ Title (sprintf "%O" tag.Action) ] [ str tag.Description ]
+    | Some _ ->
+        div [] [
+            filterBox model dispatch
+            table [][
+                thead [][
+                    tr [] [
+                        th [] [ str "Object"]
+                        th [] [ str "Description"]
                     ]
+                ]
+                tbody [][
+                    for tag in model.ShownTags ->
+                        tr [ Id tag.Token ] [
+                            yield td [ Title tag.Token ] [ str tag.Object ]
+                            match tag.Action with
+                            | TagAction.PlayMusik url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
+                            | TagAction.PlayYoutube url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
+                            | _ -> yield td [ Title (sprintf "%O" tag.Action) ] [ str tag.Description ]
+                        ]
+                ]
             ]
         ]
 
@@ -284,8 +302,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                            [ Heading.IsSubtitle
                              Heading.Is4 ]
                            [ audioHubComponents ]
-                         filterBox model dispatch
-                         tagsTable model.Tags ] ] ] ]
+                         tagsTable model dispatch ] ] ] ]
           Hero.foot [ ]
             [ Container.container [ ]
                 [ Tabs.tabs [ Tabs.IsCentered ]

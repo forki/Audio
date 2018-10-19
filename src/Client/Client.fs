@@ -199,11 +199,6 @@ let audioHubComponents =
         [ str " powered by: "
           components ]
 
-let show tagList =
-    match tagList with
-    | Some (tagList:TagList) -> string tagList.Tags.Length
-    | _ -> "Loading..."
-
 let navBrand =
     Navbar.Brand.div [ ]
         [ Navbar.Item.a
@@ -240,7 +235,7 @@ let filterBox (model : Model) (dispatch : Msg -> unit) =
             [ Control.p [ Control.IsExpanded ]
                 [ Input.text
                     [ Input.OnChange (fun x -> dispatch (FilterChanged x.Value))
-                      Input.Value (show model.Tags) ] ]
+                      Input.Value model.FilterText ] ]
               Control.p [ ]
                 [ Button.a
                     [ Button.Color IsPrimary

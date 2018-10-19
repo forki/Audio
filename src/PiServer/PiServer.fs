@@ -54,7 +54,7 @@ let play (uris:string []) = task {
             p.StartInfo <- startInfo
             let _ = p.Start()
 
-            while not globalStop && getMusikPlayerProcesses() <> [||] do
+            while not globalStop && not p.HasExited do
                 do! Task.Delay 100
 }
 

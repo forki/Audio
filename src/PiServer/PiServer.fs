@@ -237,23 +237,25 @@ let executeStartupActions () = task {
 }
 
 let discoverAllYoutubeLinks () = task {
-    try
-        use webClient = new System.Net.WebClient()
-        let url = sprintf  @"%s/api/usertags/%s" tagServer userID
-        let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+    while true do
+        try
+            use webClient = new System.Net.WebClient()
+            let url = sprintf  @"%s/api/usertags/%s" tagServer userID
+            let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
-        match Decode.fromString TagList.Decoder result with
-        | Error msg -> return failwith msg
-        | Ok list ->
-            for tag in list.Tags do
-                match tag.Action with
-                | TagAction.PlayYoutube youtubeURL ->
-                    let! _ = getYoutubeLink youtubeURL
-                    ()
-                | _ -> ()
-    with
-    | exn ->
-        log.ErrorFormat("Youtube discovering error: {0}", exn.Message)
+            match Decode.fromString TagList.Decoder result with
+            | Error msg -> return failwith msg
+            | Ok list ->
+                for tag in list.Tags do
+                    match tag.Action with
+                    | TagAction.PlayYoutube youtubeURL ->
+                        let! _ = getYoutubeLink youtubeURL
+                        ()
+                    | _ -> ()
+        with
+        | exn ->
+            log.ErrorFormat("Youtube discovering error: {0}", exn.Message)
+        do! Task.Delay(TimeSpan.FromMinutes 60.)
 }
 
 let webApp = router {

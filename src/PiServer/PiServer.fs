@@ -49,7 +49,6 @@ let play (uris:string []) = task {
                 tcs.TrySetResult(null) |> ignore
             )
 
-            p.Exited.AddHandler handler
             try
                 log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
                 i <- i + 1
@@ -57,6 +56,10 @@ let play (uris:string []) = task {
                 startInfo.Arguments <- mediaFile
                 p.StartInfo <- startInfo
                 let _ = p.Start()
+
+                p.Exited.AddHandler handler
+                if p.HasExited then
+                    tcs.TrySetResult(null) |> ignore
                 let! _ = tcs.Task
                 ()
             finally

@@ -185,7 +185,7 @@ let audioHubComponents =
         [ str " powered by: "
           components ]
 
-let show tagList = 
+let show tagList =
     match tagList with
     | Some (tagList:TagList) -> string tagList.Tags.Length
     | _ -> "Loading..."
@@ -215,7 +215,7 @@ let navMenu =
               Navbar.Item.div [ ]
                 [ Button.a
                     [ Button.Size IsSmall
-                      Button.Props [ Href "https://github.com/SAFE-Stack/SAFE-template" ] ]
+                      Button.Props [ Href "https://github.com/forki/Audio" ] ]
                     [ Icon.faIcon [ ]
                         [ Fa.icon Fa.I.Github; Fa.fw ]
                       span [ ] [ str "View Source" ] ] ] ] ]

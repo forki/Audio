@@ -194,7 +194,10 @@ let checkFirmware () = task {
     | Ok firmware ->
         try
             nextFirmwareCheck <- DateTimeOffset.UtcNow.Add firmwareUpdateInterval
-            if firmware.Version > ReleaseNotes.Version then
+            log.InfoFormat("Latest firmware on server: {0}", firmware.Version)
+            let serverVersion = Paket.SemVer.Parse firmware.Version
+            let localVersion = Paket.SemVer.Parse ReleaseNotes.Version
+            if serverVersion > localVersion then
                 let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".zip")
                 log.InfoFormat("Starting download of {0}", firmware.Url)
                 do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)

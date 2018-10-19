@@ -41,29 +41,24 @@ let play (uris:string []) = task {
     for mediaFile in uris do
         if not globalStop then
             let p = new System.Diagnostics.Process()
+            let lines = System.Collections.Generic.List<_>()
             runningProcess <- p
             let startInfo = System.Diagnostics.ProcessStartInfo()
-            p.EnableRaisingEvents <- true
-            let tcs = new TaskCompletionSource<obj>()
-            let handler = System.EventHandler(fun _ args ->
-                tcs.TrySetResult(null) |> ignore
-            )
 
-            try
-                log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
-                i <- i + 1
-                startInfo.FileName <- "omxplayer"
-                startInfo.Arguments <- mediaFile
-                p.StartInfo <- startInfo
-                let _ = p.Start()
+            log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
+            i <- i + 1
+            startInfo.FileName <- "omxplayer"
+            startInfo.Arguments <- mediaFile
+            startInfo.UseShellExecute <- false
+            startInfo.RedirectStandardOutput <- true
+            startInfo.CreateNoWindow <- true
+            p.StartInfo <- startInfo
+            let _ = p.Start()
 
-                p.Exited.AddHandler handler
-                if p.HasExited then
-                    tcs.TrySetResult(null) |> ignore
-                let! _ = tcs.Task
-                ()
-            finally
-                p.Exited.RemoveHandler handler
+            while not p.StandardOutput.EndOfStream do
+                let! line = p.StandardOutput.ReadLineAsync()
+                log.InfoFormat line
+                lines.Add line
 }
 
 
@@ -92,7 +87,7 @@ let discoverYoutubeLink (youtubeURL:string) = task {
         |> Array.filter (fun x -> x.Contains "&mime=audio")
 
     for vLink in links do
-        log.InfoFormat( "Youtube audio link detected: {0}", vLink)
+        log.InfoFormat("Youtube audio link detected: {0}", vLink)
     return links
 }
 

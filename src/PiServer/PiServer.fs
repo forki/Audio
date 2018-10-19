@@ -252,8 +252,8 @@ let discoverAllYoutubeLinks () = task {
                 for tag in list.Tags do
                     match tag.Action with
                     | TagAction.PlayYoutube youtubeURL ->
-                        let! _ = getYoutubeLink youtubeURL
-                        ()
+                        let! vlinks = discoverYoutubeLink youtubeURL
+                        youtubeLinks.AddOrUpdate(youtubeURL,vlinks,Func<_,_,_>(fun _ _ -> vlinks)) |> ignore
                     | _ -> ()
         with
         | exn ->

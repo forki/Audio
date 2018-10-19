@@ -36,12 +36,14 @@ let mutable runningProcess = null
 
 let mutable globalStop = false
 
+
+let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
+
 let play (uris:string []) = task {
     let mutable i = 1
     for mediaFile in uris do
         if not globalStop then
             let p = new System.Diagnostics.Process()
-            let lines = System.Collections.Generic.List<_>()
             runningProcess <- p
             let startInfo = System.Diagnostics.ProcessStartInfo()
 
@@ -49,16 +51,11 @@ let play (uris:string []) = task {
             i <- i + 1
             startInfo.FileName <- "omxplayer"
             startInfo.Arguments <- mediaFile
-            startInfo.UseShellExecute <- false
-            startInfo.RedirectStandardOutput <- true
-            startInfo.CreateNoWindow <- true
             p.StartInfo <- startInfo
             let _ = p.Start()
 
-            while not p.StandardOutput.EndOfStream do
-                let! line = p.StandardOutput.ReadLineAsync()
-                log.InfoFormat line
-                lines.Add line
+            while not globalStop && getMusikPlayerProcesses() <> [||] do
+                do! Task.Delay 100
 }
 
 
@@ -101,7 +98,6 @@ let getYoutubeLink youtubeURL : Task<string []> = task {
         return vlinks
 }
 
-let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
 let stop () = task {
     globalStop <- true

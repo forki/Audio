@@ -34,28 +34,22 @@ let port = 8086us
 
 let mutable runningProcess = null
 
-let mutable globalStop = false
 
-
-let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
+let getMusikPlayerProcesses() = Process.GetProcessesByName("vlc.bin")
 
 let play (uris:string []) = task {
-    let mutable i = 1
-    for mediaFile in uris do
-        if not globalStop then
-            let p = new System.Diagnostics.Process()
-            runningProcess <- p
-            let startInfo = System.Diagnostics.ProcessStartInfo()
+    let p = new System.Diagnostics.Process()
+    runningProcess <- p
+    let startInfo = System.Diagnostics.ProcessStartInfo()
+    startInfo.FileName <- "vlc"
+    let uris = uris |> Array.map (fun x -> "\"" + x + "\"")
+    startInfo.Arguments <- " --no-video " + String.concat " " uris
+    log.InfoFormat( "Starting vlc with {0}", startInfo.Arguments)
+    p.StartInfo <- startInfo
+    let _ = p.Start()
 
-            log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
-            i <- i + 1
-            startInfo.FileName <- "omxplayer"
-            startInfo.Arguments <- mediaFile
-            p.StartInfo <- startInfo
-            let _ = p.Start()
-
-            while not globalStop && not p.HasExited do
-                do! Task.Delay 100
+    while not p.HasExited do
+        do! Task.Delay 100
 }
 
 
@@ -100,7 +94,6 @@ let getYoutubeLink youtubeURL : Task<string []> = task {
 
 
 let stop () = task {
-    globalStop <- true
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
             log.InfoFormat "stopping omxplaxer"
@@ -123,7 +116,6 @@ let executeAction (action:TagAction) =
     | TagAction.PlayMusik url ->
         task {
             let! _ = stop ()
-            globalStop <- false
             currentTask <- play [|url|]
         }
     | TagAction.PlayYoutube youtubeURL ->
@@ -131,7 +123,6 @@ let executeAction (action:TagAction) =
             let! _ = stop ()
             log.InfoFormat( "Playing Youtube {0}", youtubeURL)
             let! vlinks = getYoutubeLink youtubeURL
-            globalStop <- false
             currentTask <- play vlinks
         }
     | TagAction.PlayBlobMusik _ ->

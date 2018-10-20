@@ -49,8 +49,8 @@ let play (uris:string []) = task {
 
             log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
             i <- i + 1
-            startInfo.FileName <- "omxplayer"
-            startInfo.Arguments <- mediaFile
+            startInfo.FileName <- "sudo"
+            startInfo.Arguments <- "omxplayer " + mediaFile
             p.StartInfo <- startInfo
             let _ = p.Start()
 

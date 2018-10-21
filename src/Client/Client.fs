@@ -170,20 +170,6 @@ open Fable.Helpers.React.Props
 open Fable.Core.JsInterop
 
 
-// let view (model : Model) (dispatch : Msg -> unit) =
-//     Hero.hero [ Hero.Color IsPrimary; Hero.IsFullHeight ]
-//         [ Hero.body [ ]
-//             [ Container.container [ Container.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-//                 [ div [] [
-//                     input [
-//                         Type "file"
-//                         OnChange (fun x -> FileNameChanged (!!x.target?files?(0)) |> dispatch) ]
-//                     br []
-//                     button [ OnClick (fun _ -> dispatch Upload) ] [str "Upload"]
-//                     br []
-//                     str "Message: "
-//                     str model.Message
-
 
 let audioHubComponents =
     let components =
@@ -284,8 +270,17 @@ let view (model : Model) (dispatch : Msg -> unit) =
                 [ Columns.columns [ Columns.IsVCentered ]
                     [ Column.column
                         [ Column.Width (Screen.All, Column.Is5) ]
-                        [ Image.image [ Image.Is4by3 ]
-                            [ img [ Src "http://placehold.it/800x600" ] ] ]
+                        [ 
+                          div [] [
+                            input [
+                                Type "file"
+                                OnChange (fun x -> FileNameChanged (!!x.target?files?(0)) |> dispatch) ]
+                            br []
+                            button [ OnClick (fun _ -> dispatch Upload) ] [str "Upload"]
+                            br []
+                            str "Message: "
+                            str model.Message]
+                        ]
                       Column.column
                        [ Column.Width (Screen.All, Column.Is5)
                          Column.Offset (Screen.All, Column.Is1) ]

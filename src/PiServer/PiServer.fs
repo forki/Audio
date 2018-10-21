@@ -12,6 +12,7 @@ open System.Threading
 open System.Diagnostics
 open System.Xml
 open System.Reflection
+open GeneralIO
 
 let tagServer = "https://audio-hub.azurewebsites.net"
 let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f"
@@ -292,6 +293,7 @@ let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServi
 
 
 let rfidLoop() = task {
+    use button = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> globalStop <- true)
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
 

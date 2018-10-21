@@ -105,14 +105,14 @@ let stop () = task {
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
             log.InfoFormat "stopping omxplaxer"
-            try p.Kill() with _ -> log.WarnFormat "couldn't kill omxplayer"
+            try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
 }
 
 let next () = task {
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
             log.InfoFormat "stopping omxplaxer"
-            try p.Kill() with _ -> log.WarnFormat "couldn't kill omxplayer"
+            try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
 }
 
 let mutable currentTask = null

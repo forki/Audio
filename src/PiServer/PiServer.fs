@@ -108,6 +108,13 @@ let stop () = task {
             try p.Kill() with _ -> log.WarnFormat "couldn't kill omxplayer"
 }
 
+let next () = task {
+    for p in getMusikPlayerProcesses() do
+        if not p.HasExited then
+            log.InfoFormat "stopping omxplaxer"
+            try p.Kill() with _ -> log.WarnFormat "couldn't kill omxplayer"
+}
+
 let mutable currentTask = null
 
 let executeAction (action:TagAction) =
@@ -293,7 +300,7 @@ let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServi
 
 
 let rfidLoop() = task {
-    use button = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> globalStop <- true)
+    use button = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
 

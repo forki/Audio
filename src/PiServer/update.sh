@@ -62,8 +62,8 @@ if [ -e $DEFAULTS ]; then
         if [ -e $DAEMON ]; then
             chmod +x $DAEMONHOME/$NAME
 
-            log_action_begin_msg "Starting service"
-            service $PROJECTNAME start
+            log_action_begin_msg "rebooting"
+            sudo reboot
             log_action_end_msg $?
         fi
     else

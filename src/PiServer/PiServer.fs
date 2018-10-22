@@ -42,7 +42,8 @@ let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
 let play (uris:string []) = task {
     let mutable i = 1
-    while currentAudio > 0 && currentAudio < uris.Length do
+    while currentAudio >= 0 && currentAudio < uris.Length do
+        log.InfoFormat( "Playing audio file {0} / {1}", currentAudio, uris.Length)
         let mediaFile = uris.[currentAudio]
         let p = new System.Diagnostics.Process()
         runningProcess <- p
@@ -111,6 +112,7 @@ let stop () = task {
 }
 
 let next () = task {
+    currentAudio <- max -1 (currentAudio - 2)
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
             log.InfoFormat "stopping omxplaxer"
@@ -118,6 +120,13 @@ let next () = task {
     do! Task.Delay 100
 }
 
+let previous () = task {
+    for p in getMusikPlayerProcesses() do
+        if not p.HasExited then
+            log.InfoFormat "stopping omxplaxer"
+            try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
+    do! Task.Delay 100
+}
 let mutable currentTask = null
 
 let executeAction (action:TagAction) =
@@ -236,6 +245,7 @@ let executeStartupActions () = task {
         match Decode.fromString (Decode.list TagAction.Decoder) result with
         | Error msg -> return failwith msg
         | Ok actions ->
+            log.ErrorFormat("Actions: {0}", sprintf "%A" actions) 
             for t in actions do
                 let! _ = executeAction t
                 ()

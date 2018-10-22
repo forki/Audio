@@ -269,6 +269,18 @@ let view (model : Model) (dispatch : Msg -> unit) =
                 [ Container.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                 [ Columns.columns [ Columns.IsVCentered ]
                     [ Column.column
+                        [ Column.Width (Screen.All, Column.Is5)
+                          Column.Offset (Screen.All, Column.Is1) ]
+                        [ Heading.h1 [ Heading.Is2 ]
+                           [ match model.Firmware with
+                             | None -> yield str "Audio Hub"
+                             | Some fw -> yield a [ Href fw.Url ] [ str ("Audio Hub " + fw.Version) ] ]
+                          Heading.h2
+                           [ Heading.IsSubtitle
+                             Heading.Is4 ]
+                           [ audioHubComponents ]
+                          tagsTable model dispatch ]
+                      Column.column
                         [ Column.Width (Screen.All, Column.Is5) ]
                         [ 
                           div [] [
@@ -280,19 +292,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                             br []
                             str "Message: "
                             str model.Message]
-                        ]
-                      Column.column
-                       [ Column.Width (Screen.All, Column.Is5)
-                         Column.Offset (Screen.All, Column.Is1) ]
-                       [ Heading.h1 [ Heading.Is2 ]
-                           [ match model.Firmware with
-                             | None -> yield str "Audio Hub"
-                             | Some fw -> yield a [ Href fw.Url ] [ str ("Audio Hub " + fw.Version) ] ]
-                         Heading.h2
-                           [ Heading.IsSubtitle
-                             Heading.Is4 ]
-                           [ audioHubComponents ]
-                         tagsTable model dispatch ] ] ] ]
+                        ] ] ] ]
           Hero.foot [ ]
             [ Container.container [ ]
                 [ Tabs.tabs [ Tabs.IsCentered ]

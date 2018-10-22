@@ -56,7 +56,7 @@ let play (uris:string []) = task {
         p.StartInfo <- startInfo
         let _ = p.Start()
 
-        while currentAudio > 0 && not p.HasExited do
+        while currentAudio >= 0 && not p.HasExited do
             do! Task.Delay 100
         currentAudio <- currentAudio + 1
 }

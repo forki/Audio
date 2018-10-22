@@ -111,7 +111,7 @@ let getYoutubeLink youtubeURL : Task<string []> = task {
 
 
 let stop () = task {
-    currentAudio <- -1
+    currentAudio <- -100
     killMusikPlayer()
     do! Task.Delay 100
 }

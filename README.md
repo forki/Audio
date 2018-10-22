@@ -10,11 +10,11 @@ There are couple of commercial solutions for this, but this project aims to crea
 
 ## Components
 
+If you want to build your own jukebox you will need the items from the [shopping list](AudioBoxConrad.pdf).
+
 ### Raspberry Pi
 
 The Raspberry Pi will be connected to an NFC/RFID-Card reader and a speaker module.
-
-[TODO: Explaing wiring]
 
 ### Server
 

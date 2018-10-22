@@ -35,28 +35,29 @@ let port = 8086us
 
 let mutable runningProcess = null
 
-let mutable globalStop = false
+let mutable currentAudio = 0
 
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
 let play (uris:string []) = task {
     let mutable i = 1
-    for mediaFile in uris do
-        if not globalStop then
-            let p = new System.Diagnostics.Process()
-            runningProcess <- p
-            let startInfo = System.Diagnostics.ProcessStartInfo()
+    while currentAudio > 0 && currentAudio < uris.Length do
+        let mediaFile = uris.[currentAudio]
+        let p = new System.Diagnostics.Process()
+        runningProcess <- p
+        let startInfo = System.Diagnostics.ProcessStartInfo()
 
-            log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
-            i <- i + 1
-            startInfo.FileName <- "sudo"
-            startInfo.Arguments <- "omxplayer " + mediaFile
-            p.StartInfo <- startInfo
-            let _ = p.Start()
+        log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
+        i <- i + 1
+        startInfo.FileName <- "sudo"
+        startInfo.Arguments <- "omxplayer " + mediaFile
+        p.StartInfo <- startInfo
+        let _ = p.Start()
 
-            while not globalStop && not p.HasExited do
-                do! Task.Delay 100
+        while currentAudio > 0 && not p.HasExited do
+            do! Task.Delay 100
+        currentAudio <- currentAudio + 1
 }
 
 
@@ -101,11 +102,12 @@ let getYoutubeLink youtubeURL : Task<string []> = task {
 
 
 let stop () = task {
-    globalStop <- true
+    currentAudio <- -1
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
             log.InfoFormat "stopping omxplaxer"
             try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
+    do! Task.Delay 100
 }
 
 let next () = task {
@@ -113,6 +115,7 @@ let next () = task {
         if not p.HasExited then
             log.InfoFormat "stopping omxplaxer"
             try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
+    do! Task.Delay 100
 }
 
 let mutable currentTask = null
@@ -131,7 +134,7 @@ let executeAction (action:TagAction) =
     | TagAction.PlayMusik url ->
         task {
             let! _ = stop ()
-            globalStop <- false
+            currentAudio <- 0
             currentTask <- play [|url|]
         }
     | TagAction.PlayYoutube youtubeURL ->
@@ -139,7 +142,7 @@ let executeAction (action:TagAction) =
             let! _ = stop ()
             log.InfoFormat( "Playing Youtube {0}", youtubeURL)
             let! vlinks = getYoutubeLink youtubeURL
-            globalStop <- false
+            currentAudio <- 0
             currentTask <- play vlinks
         }
     | TagAction.PlayBlobMusik _ ->

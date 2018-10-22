@@ -40,6 +40,13 @@ let mutable currentAudio = 0
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
+let killMusikPlayer() =
+    for p in getMusikPlayerProcesses() do
+        if not p.HasExited then
+            log.InfoFormat "stopping omxplaxer"
+            try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
+
+
 let play (uris:string []) = task {
     let mutable i = 1
     while currentAudio >= 0 && currentAudio < uris.Length do
@@ -54,6 +61,7 @@ let play (uris:string []) = task {
         startInfo.FileName <- "sudo"
         startInfo.Arguments <- "omxplayer " + mediaFile
         p.StartInfo <- startInfo
+        killMusikPlayer()
         let _ = p.Start()
 
         while currentAudio >= 0 && not p.HasExited do
@@ -104,27 +112,19 @@ let getYoutubeLink youtubeURL : Task<string []> = task {
 
 let stop () = task {
     currentAudio <- -1
-    for p in getMusikPlayerProcesses() do
-        if not p.HasExited then
-            log.InfoFormat "stopping omxplaxer"
-            try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
+    killMusikPlayer()
     do! Task.Delay 100
 }
 
 let next () = task {
-    currentAudio <- max -1 (currentAudio - 2)
-    for p in getMusikPlayerProcesses() do
-        if not p.HasExited then
-            log.InfoFormat "stopping omxplaxer"
-            try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
+    currentAudio <- currentAudio + 1
+    killMusikPlayer()
     do! Task.Delay 100
 }
 
 let previous () = task {
-    for p in getMusikPlayerProcesses() do
-        if not p.HasExited then
-            log.InfoFormat "stopping omxplaxer"
-            try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
+    currentAudio <- max -1 (currentAudio - 2)
+    killMusikPlayer()
     do! Task.Delay 100
 }
 let mutable currentTask = null

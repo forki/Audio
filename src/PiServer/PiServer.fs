@@ -40,11 +40,23 @@ let mutable currentAudio = 0
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
-let killMusikPlayer() =
+let killMusikPlayer() = task {
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
-            log.InfoFormat "stopping omxplaxer"
-            try p.Kill(); log.InfoFormat "stopped" with _ -> log.WarnFormat "couldn't kill omxplayer"
+            try
+                log.InfoFormat "stopping omxplaxer"
+                let killP = new System.Diagnostics.Process()
+                let startInfo = System.Diagnostics.ProcessStartInfo()
+                startInfo.FileName <- "sudo"
+                startInfo.Arguments <- "kill -9 " + p.Id.ToString()
+                killP.StartInfo <- startInfo
+                let _ = killP.Start()
+
+                while not killP.HasExited do
+                    do! Task.Delay 10
+                log.InfoFormat "stopped"
+            with _ -> log.WarnFormat "couldn't kill omxplayer"
+}
 
 
 let play (uris:string []) = task {
@@ -58,10 +70,10 @@ let play (uris:string []) = task {
 
         log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
         i <- i + 1
-        startInfo.FileName <- "sudo"
-        startInfo.Arguments <- "omxplayer " + mediaFile
+        startInfo.FileName <- "omxplayer"
+        startInfo.Arguments <- mediaFile
         p.StartInfo <- startInfo
-        killMusikPlayer()
+        do! killMusikPlayer()
         let _ = p.Start()
 
         while currentAudio >= 0 && not p.HasExited do
@@ -112,21 +124,19 @@ let getYoutubeLink youtubeURL : Task<string []> = task {
 
 let stop () = task {
     currentAudio <- -100
-    killMusikPlayer()
-    do! Task.Delay 100
+    do! killMusikPlayer()
 }
 
 let next () = task {
     currentAudio <- currentAudio + 1
-    killMusikPlayer()
-    do! Task.Delay 100
+    do! killMusikPlayer()
 }
 
 let previous () = task {
     currentAudio <- max -1 (currentAudio - 2)
-    killMusikPlayer()
-    do! Task.Delay 100
+    do! killMusikPlayer()
 }
+
 let mutable currentTask = null
 
 let executeAction (action:TagAction) =
@@ -245,7 +255,7 @@ let executeStartupActions () = task {
         match Decode.fromString (Decode.list TagAction.Decoder) result with
         | Error msg -> return failwith msg
         | Ok actions ->
-            log.ErrorFormat("Actions: {0}", sprintf "%A" actions) 
+            log.ErrorFormat("Actions: {0}", sprintf "%A" actions)
             for t in actions do
                 let! _ = executeAction t
                 ()
@@ -313,9 +323,8 @@ let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServi
 
 
 let rfidLoop() = task {
-    // let led = LED(Unosquare.RaspberryIO.Pi.Gpio.Pin01)
-    // led.Activate()
-    use button = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
+    use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
+    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin00, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
 

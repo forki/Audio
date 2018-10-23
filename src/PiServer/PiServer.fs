@@ -8,7 +8,6 @@ open Microsoft.AspNetCore.NodeServices
 open Thoth.Json.Net
 open ServerCore.Domain
 open System.Threading.Tasks
-open System.Threading
 open System.Diagnostics
 open System.Xml
 open System.Reflection
@@ -62,7 +61,6 @@ let youtubeLinks = System.Collections.Concurrent.ConcurrentDictionary<_,_>()
 
 
 let play (uri:string) = task {
-    let mutable i = 1
     let mutable uris = 
         match youtubeLinks.TryGetValue uri with
         | true, links -> links
@@ -74,17 +72,16 @@ let play (uri:string) = task {
         let p = new System.Diagnostics.Process()
         runningProcess <- p
         let startInfo = System.Diagnostics.ProcessStartInfo()
-
-        log.InfoFormat( "Starting omxplayer with {0} - {1} of {2}", mediaFile, i, uris.Length)
-        i <- i + 1
         startInfo.FileName <- "omxplayer"
         startInfo.Arguments <- mediaFile
         p.StartInfo <- startInfo
         do! killMusikPlayer()
+        do! Task.Delay 100
         let _ = p.Start()
 
         while currentAudio >= 0 && not p.HasExited do
             do! Task.Delay 100
+
         currentAudio <- currentAudio + 1
         uris <-
             match youtubeLinks.TryGetValue uri with
@@ -136,11 +133,13 @@ let stop () = task {
 }
 
 let next () = task {
+    log.InfoFormat "Next button pressed"
     currentAudio <- currentAudio + 1
     do! killMusikPlayer()
 }
 
 let previous () = task {
+    log.InfoFormat "Previous button pressed"
     currentAudio <- max -1 (currentAudio - 2)
     do! killMusikPlayer()
 }
@@ -160,16 +159,14 @@ let executeAction (action:TagAction) =
         }
     | TagAction.PlayMusik url ->
         task {
-            let! _ = stop ()
             currentAudio <- 0
             currentTask <- play url
         }
     | TagAction.PlayYoutube youtubeURL ->
         task {
-            let! _ = stop ()
-            log.InfoFormat( "Playing Youtube {0}", youtubeURL)
             do! getYoutubeLink youtubeURL
             currentAudio <- 0
+            log.InfoFormat( "Playing Youtube {0}", youtubeURL)
             currentTask <- play youtubeURL
         }
     | TagAction.PlayBlobMusik _ ->
@@ -333,7 +330,7 @@ let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServi
 let rfidLoop() = task {
     use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
     use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
-    use _nextButton2 = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
+    use _nextButton2 = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
     use _previousButton2 = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")

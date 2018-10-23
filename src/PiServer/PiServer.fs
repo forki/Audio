@@ -34,7 +34,7 @@ let port = 8086us
 
 let mutable runningProcess = null
 
-let mutable currentAudio = 0
+let mutable audioCommand = None
 let mutable taskID = Guid.NewGuid().ToString()
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
@@ -62,7 +62,7 @@ let youtubeLinks = System.Collections.Concurrent.ConcurrentDictionary<_,_>()
 
 
 let play (myTaskID:string) (uri:string) = task {
-    currentAudio <- 0
+    let mutable currentAudio = 0
     let mutable uris = 
         match youtubeLinks.TryGetValue uri with
         | true, links -> links
@@ -86,7 +86,11 @@ let play (myTaskID:string) (uri:string) = task {
         while currentAudio >= 0 && not p.HasExited do
             do! Task.Delay 100
 
-        currentAudio <- currentAudio + 1
+        match audioCommand with
+        | Some c -> currentAudio <- currentAudio + c
+        | None -> currentAudio <- currentAudio + 1
+
+        audioCommand <- None
         uris <-
             match youtubeLinks.TryGetValue uri with
             | true, links -> links
@@ -133,18 +137,19 @@ let getYoutubeLink youtubeURL = task {
 
 let stop () = task {
     taskID <- Guid.NewGuid().ToString()
-    currentAudio <- -100
+    audioCommand <- Some System.Int32.MaxValue
     do! killMusikPlayer()
 }
 
 let next () = task {
     log.InfoFormat "Next button pressed"
+    audioCommand <- Some 1
     do! killMusikPlayer()
 }
 
 let previous () = task {
     log.InfoFormat "Previous button pressed"
-    currentAudio <- max -1 (currentAudio - 2)
+    audioCommand <- Some -1
     do! killMusikPlayer()
 }
 

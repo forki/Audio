@@ -69,7 +69,7 @@ let fetchFirmware() = promise {
 }
 
 
-let uploadFile (fileName) = promise {
+let uploadFile (fileName,token) = promise {
     let formData = Fable.Import.Browser.FormData.Create()
     formData.append("file",fileName)
 
@@ -80,8 +80,8 @@ let uploadFile (fileName) = promise {
             //HttpRequestHeaders.ContentType "multipart/form-data"
              ]
           RequestProperties.Body (unbox formData) ]
-
-    let! res = Fetch.fetch "api/upload" props
+    let url = sprintf "api/upload/%s" token
+    let! res = Fetch.fetch url props
     let! txt = res.text()
 
     match Decode.fromString Tag.Decoder txt with
@@ -158,7 +158,8 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match model.File with
         | None -> model, Cmd.none
         | Some fileName ->
-            { model with File = None; IsUploading = true; Message = "Upload started" }, Cmd.ofPromise uploadFile fileName FileUploaded UploadFailed
+            { model with File = None; IsUploading = true; Message = "Upload started" }, 
+                Cmd.ofPromise uploadFile (fileName,"temp") FileUploaded UploadFailed
 
     | Err exn ->
         { model with Message = exn.Message }, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
@@ -249,7 +250,7 @@ let tagsTable (model : Model) (dispatch : Msg -> unit) =
                             match tag.Action with
                             | TagAction.PlayMusik url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
                             | TagAction.PlayYoutube url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
-                            | _ -> yield td [ Title (sprintf "%O" tag.Action) ] [ str tag.Description ]
+                            | _ -> yield td [ Title (tag.Action.ToString()) ] [ str tag.Description ]
                         ]
                 ]
             ]
@@ -299,7 +300,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     [ ul [ ]
                         [ li [ ]
                             [ a [ ]
-                                [ str "(c) Steffen Forkmann 2018" ] ] ] ] ] ] ]
+                                [ str "AudioHub - 2018" ] ] ] ] ] ] ]
 
 
 

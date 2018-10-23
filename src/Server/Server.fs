@@ -54,7 +54,7 @@ let mapBlobMusikTag (tag:Tag) = task {
     | _ -> return tag
 }
 
-let uploadEndpoint =
+let uploadEndpoint (token:string) =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
@@ -67,7 +67,7 @@ let uploadEndpoint =
                 use stream = file.OpenReadStream()
                 let! tagAction = uploadMusik stream
                 let tag = { Token = System.Guid.NewGuid().ToString(); Action = tagAction; Description = ""; Object = "" }
-                let! saved = AzureTable.saveTag "temp" tag
+                let! _saved = AzureTable.saveTag token tag
                 let! tag = mapBlobMusikTag tag
                 let txt = Tag.Encoder tag |> Encode.toString 0
                 return! setBodyFromString txt next ctx
@@ -138,7 +138,7 @@ let webApp =
     router {
         getf "/api/tags/%s/%s" tagEndpoint
         getf "/api/usertags/%s" allTagsEndpoint
-        post "/api/upload" uploadEndpoint
+        postf "/api/upload/%s" uploadEndpoint
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
         get "/api/latestfirmware" getLatestFirmware

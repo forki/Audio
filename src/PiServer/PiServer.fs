@@ -78,7 +78,9 @@ let play (myTaskID:string) (uri:string) = task {
         startInfo.FileName <- "omxplayer"
         startInfo.Arguments <- mediaFile
         p.StartInfo <- startInfo
+        do! killMusikPlayer()
         do! Task.Delay 100
+
         let _ = p.Start()
 
         while currentAudio >= 0 && not p.HasExited do
@@ -137,7 +139,6 @@ let stop () = task {
 
 let next () = task {
     log.InfoFormat "Next button pressed"
-    currentAudio <- currentAudio + 1
     do! killMusikPlayer()
 }
 

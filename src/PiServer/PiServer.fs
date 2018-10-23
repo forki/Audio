@@ -62,12 +62,13 @@ let youtubeLinks = System.Collections.Concurrent.ConcurrentDictionary<_,_>()
 
 
 let play (myTaskID:string) (uri:string) = task {
+    currentAudio <- 0
     let mutable uris = 
         match youtubeLinks.TryGetValue uri with
         | true, links -> links
         | _ -> [| uri |]
     log.InfoFormat( "Playing with TaskID: {0}: Files: {1}", myTaskID, uris.Length)
-
+    
     while myTaskID = taskID && currentAudio >= 0 && currentAudio < uris.Length do
         log.InfoFormat( "Playing audio file {0} / {1}", currentAudio + 1, uris.Length)
         let mediaFile = uris.[currentAudio]
@@ -77,7 +78,6 @@ let play (myTaskID:string) (uri:string) = task {
         startInfo.FileName <- "omxplayer"
         startInfo.Arguments <- mediaFile
         p.StartInfo <- startInfo
-        do! killMusikPlayer()
         do! Task.Delay 100
         let _ = p.Start()
 
@@ -162,7 +162,6 @@ let executeAction (action:TagAction) =
         }
     | TagAction.PlayMusik url ->
         task {
-            currentAudio <- 0
             do! stop()
             taskID <- Guid.NewGuid().ToString()
             currentTask <- play taskID url 
@@ -170,7 +169,6 @@ let executeAction (action:TagAction) =
     | TagAction.PlayYoutube youtubeURL ->
         task {
             do! getYoutubeLink youtubeURL
-            currentAudio <- 0
             log.InfoFormat( "Playing Youtube {0}", youtubeURL)
             do! stop()
             taskID <- Guid.NewGuid().ToString()

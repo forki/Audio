@@ -60,6 +60,7 @@ let killMusikPlayer() = task {
 
 let youtubeLinks = System.Collections.Concurrent.ConcurrentDictionary<_,_>()
 
+let mutable currentAudioProcess = null
 
 let play (myTaskID:string) (uri:string) = task {
     let mutable currentAudio = 0
@@ -82,13 +83,16 @@ let play (myTaskID:string) (uri:string) = task {
         do! Task.Delay 100
 
         let _ = p.Start()
+        currentAudioProcess <- p
 
         while currentAudio >= 0 && not p.HasExited do
             do! Task.Delay 100
 
         match audioCommand with
+        | Some System.Int32.MaxValue -> currentAudio <- System.Int32.MaxValue
         | Some c -> currentAudio <- currentAudio + c
         | None -> currentAudio <- currentAudio + 1
+        if currentAudio < 0 then currentAudio <- 0
 
         audioCommand <- None
         uris <-

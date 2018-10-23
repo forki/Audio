@@ -1,5 +1,8 @@
 # Release Notes
 
+## 0.11.0 - 2018-10-23
+* Next/Previous buttons
+
 ## 0.10.37 - 2018-10-23
 * Use better UI
 

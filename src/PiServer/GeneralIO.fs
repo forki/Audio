@@ -40,7 +40,7 @@ type Button(pin:Gpio.GpioPin,onPress) =
         pin.InputPullMode <- Gpio.GpioPinResistorPullMode.PullUp
         lastState <- pin.Read()
         pin.RegisterInterruptCallback(
-            Gpio.EdgeDetection.RisingAndFallingEdges, 
+            Gpio.EdgeDetection.RisingAndFallingEdges,
             fun () ->
                 let state = pin.Read()
                 let time = DateTime.UtcNow
@@ -53,8 +53,8 @@ type Button(pin:Gpio.GpioPin,onPress) =
                     lastChangedState <- time
                 lastState <- state)
 
-    let d = 
-        { new IDisposable with 
+    let d =
+        { new IDisposable with
                 member __.Dispose() = () }
 
     interface IDisposable with
@@ -65,4 +65,4 @@ let waitForButtonPress (pin:Gpio.GpioPin) = task {
     use _button = new Button(pin,(fun _ -> pressed := true))
     while not !pressed do
         do! Task.Delay(100)
-}  
+}

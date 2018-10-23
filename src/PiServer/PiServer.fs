@@ -58,10 +58,18 @@ let killMusikPlayer() = task {
 }
 
 
-let play (uris:string []) = task {
+let youtubeLinks = System.Collections.Concurrent.ConcurrentDictionary<_,_>()
+
+
+let play (uri:string) = task {
     let mutable i = 1
+    let mutable uris = 
+        match youtubeLinks.TryGetValue uri with
+        | true, links -> links
+        | _ -> [| uri |]
+
     while currentAudio >= 0 && currentAudio < uris.Length do
-        log.InfoFormat( "Playing audio file {0} / {1}", currentAudio, uris.Length)
+        log.InfoFormat( "Playing audio file {0} / {1}", currentAudio + 1, uris.Length)
         let mediaFile = uris.[currentAudio]
         let p = new System.Diagnostics.Process()
         runningProcess <- p
@@ -78,10 +86,12 @@ let play (uris:string []) = task {
         while currentAudio >= 0 && not p.HasExited do
             do! Task.Delay 100
         currentAudio <- currentAudio + 1
+        uris <-
+            match youtubeLinks.TryGetValue uri with
+            | true, links -> links
+            | _ -> [| uri |]
 }
 
-
-let youtubeLinks = System.Collections.Concurrent.ConcurrentDictionary<_,_>()
 
 let discoverYoutubeLink (youtubeURL:string) = task {
     log.InfoFormat("Starting youtube-dl -g {0}", youtubeURL)
@@ -111,13 +121,12 @@ let discoverYoutubeLink (youtubeURL:string) = task {
 }
 
 
-let getYoutubeLink youtubeURL : Task<string []> = task {
+let getYoutubeLink youtubeURL = task {
     match youtubeLinks.TryGetValue youtubeURL with
-    | true, vlinks -> return vlinks
+    | true,_ -> ()
     | _ ->
         let! vlinks = discoverYoutubeLink youtubeURL
         youtubeLinks.AddOrUpdate(youtubeURL,vlinks,Func<_,_,_>(fun _ _ -> vlinks)) |> ignore
-        return vlinks
 }
 
 
@@ -153,15 +162,15 @@ let executeAction (action:TagAction) =
         task {
             let! _ = stop ()
             currentAudio <- 0
-            currentTask <- play [|url|]
+            currentTask <- play url
         }
     | TagAction.PlayYoutube youtubeURL ->
         task {
             let! _ = stop ()
             log.InfoFormat( "Playing Youtube {0}", youtubeURL)
-            let! vlinks = getYoutubeLink youtubeURL
+            do! getYoutubeLink youtubeURL
             currentAudio <- 0
-            currentTask <- play vlinks
+            currentTask <- play youtubeURL
         }
     | TagAction.PlayBlobMusik _ ->
         failwithf "Blobs links need to be converted to direct links by the tag server"
@@ -323,7 +332,8 @@ let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServi
 
 let rfidLoop() = task {
     use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
-    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
+    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
+    use _nextButton2 = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
     use _previousButton2 = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
@@ -341,11 +351,6 @@ let rfidLoop() = task {
             let mutable waiting = true
             while waiting do
                 do! Task.Delay(TimeSpan.FromSeconds 0.5)
-                if running.IsCompleted then
-                    for p in getMusikPlayerProcesses() do
-                        if p.HasExited then
-                            log.InfoFormat "omxplayer shut down"
-                            waiting <- false
 
                 let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
                 if newToken <> token then

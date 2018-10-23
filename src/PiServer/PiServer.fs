@@ -267,7 +267,7 @@ let executeStartupActions () = task {
         match Decode.fromString (Decode.list TagAction.Decoder) result with
         | Error msg -> return failwith msg
         | Ok actions ->
-            log.ErrorFormat("Actions: {0}", sprintf "%A" actions)
+            log.InfoFormat("Actions: {0}", sprintf "%A" actions)
             for t in actions do
                 let! _ = executeAction t
                 ()

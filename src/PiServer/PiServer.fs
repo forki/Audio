@@ -324,6 +324,7 @@ let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServi
 let rfidLoop() = task {
     use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
     use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
+    use _previousButton2 = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
 

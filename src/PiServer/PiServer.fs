@@ -35,6 +35,7 @@ let port = 8086us
 let mutable runningProcess = null
 
 let mutable currentAudio = 0
+let mutable taskID = Guid.NewGuid().ToString()
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
@@ -60,13 +61,13 @@ let killMusikPlayer() = task {
 let youtubeLinks = System.Collections.Concurrent.ConcurrentDictionary<_,_>()
 
 
-let play (uri:string) = task {
+let play (myTaskID:string) (uri:string) = task {
     let mutable uris = 
         match youtubeLinks.TryGetValue uri with
         | true, links -> links
         | _ -> [| uri |]
 
-    while currentAudio >= 0 && currentAudio < uris.Length do
+    while myTaskID = taskID && currentAudio >= 0 && currentAudio < uris.Length do
         log.InfoFormat( "Playing audio file {0} / {1}", currentAudio + 1, uris.Length)
         let mediaFile = uris.[currentAudio]
         let p = new System.Diagnostics.Process()
@@ -128,6 +129,7 @@ let getYoutubeLink youtubeURL = task {
 
 
 let stop () = task {
+    taskID <- Guid.NewGuid().ToString()
     currentAudio <- -100
     do! killMusikPlayer()
 }
@@ -160,14 +162,18 @@ let executeAction (action:TagAction) =
     | TagAction.PlayMusik url ->
         task {
             currentAudio <- 0
-            currentTask <- play url
+            do! stop()
+            taskID <- Guid.NewGuid().ToString()
+            currentTask <- play taskID url 
         }
     | TagAction.PlayYoutube youtubeURL ->
         task {
             do! getYoutubeLink youtubeURL
             currentAudio <- 0
             log.InfoFormat( "Playing Youtube {0}", youtubeURL)
-            currentTask <- play youtubeURL
+            do! stop()
+            taskID <- Guid.NewGuid().ToString()
+            currentTask <- play taskID youtubeURL
         }
     | TagAction.PlayBlobMusik _ ->
         failwithf "Blobs links need to be converted to direct links by the tag server"

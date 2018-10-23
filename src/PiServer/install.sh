@@ -25,7 +25,7 @@ log_action_begin_msg "Updating packages "
 log_action_cont_msg " apt update "
 apt-get -qq update
 log_action_cont_msg " apt install "
-sudo apt-get install -y curl libunwind8 gettext apt-transport-https omxplayer npm unzip
+sudo apt-get install -y curl libunwind8 gettext apt-transport-https omxplayer npm unzip vlc
 log_action_end_msg $?
 
 log_action_begin_msg "Download dotnet core "

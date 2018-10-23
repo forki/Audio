@@ -37,7 +37,6 @@ let mutable runningProcess = null
 
 let mutable currentAudio = 0
 
-
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
 let killMusikPlayer() = task {

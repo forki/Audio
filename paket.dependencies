@@ -49,12 +49,3 @@ group Pi
     nuget Thoth.Json
     nuget log4net
     nuget Unosquare.Raspberry.IO
-
-
-group Test
-    storage: none
-    source https://api.nuget.org/v3/index.json
-
-    nuget FSharp.Core
-    nuget expecto
-    nuget Expecto.FsCheck

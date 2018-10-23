@@ -16,6 +16,9 @@
         <None Include="read-tag.js">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
+        <None Include="volume.sh">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
         <None Include="package.json">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>

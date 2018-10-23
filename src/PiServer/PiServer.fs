@@ -66,6 +66,7 @@ let play (myTaskID:string) (uri:string) = task {
         match youtubeLinks.TryGetValue uri with
         | true, links -> links
         | _ -> [| uri |]
+    log.InfoFormat( "Playing with TaskID: {0}: Files: {1}", myTaskID, uris.Length)
 
     while myTaskID = taskID && currentAudio >= 0 && currentAudio < uris.Length do
         log.InfoFormat( "Playing audio file {0} / {1}", currentAudio + 1, uris.Length)

@@ -1,5 +1,8 @@
 # Release Notes
 
+## 0.12.0 - 2018-10-23
+* Volume buttons
+
 ## 0.11.21 - 2018-10-23
 * Next/Previous buttons
 

@@ -1,3 +1,4 @@
+open ServerCore.Domain
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Saturn
@@ -13,6 +14,7 @@ open System.Xml
 open System.Reflection
 open GeneralIO
 open Elmish
+open System
 
 
 
@@ -51,6 +53,7 @@ type Msg =
 | NewRFID of string
 | CheckFirmware
 | FirmwareUpToDate of unit
+| ExecuteActions of TagAction list
 | RFIDRemoved
 | NewTag of Tag
 | MusicStopped of unit
@@ -198,6 +201,16 @@ let discoverYoutubeLink (youtubeURL:string) = task {
     return links
 }
 
+let getStartupActions (model:Model) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf @"%s/api/startup" model.TagServer
+    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+
+    match Decode.fromString (Decode.list TagAction.Decoder) result with
+    | Error msg -> return failwith msg
+    | Ok actions -> return actions
+}
+
 let update (model:Model) (msg:Msg) =
     match msg with
     | VolumeUp ->
@@ -218,25 +231,7 @@ let update (model:Model) (msg:Msg) =
     | NewTag tag ->
         log.InfoFormat( "Object: {0}", tag.Object)
         log.InfoFormat( "Description: {0}", tag.Description)
-
-        match tag.Action with
-        | TagAction.UnknownTag ->
-            log.Warn "Unknown Tag"
-            model, []
-        | TagAction.StopMusik ->
-            model, Cmd.ofTask killMusikPlayer () MusicStopped Err
-        | TagAction.PlayMusik url ->
-            let playList : PlayList = {
-                Uri = url
-                MediaFiles = [| url |]
-                Position = 0
-            }
-            model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (Play playList)]
-        | TagAction.PlayYoutube youtubeURL ->
-            model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (PlayYoutube youtubeURL)]
-        | TagAction.PlayBlobMusik _ ->
-            log.Error "Blobs links need to be converted to direct links by the tag server"
-            model, Cmd.none
+        model, Cmd.ofMsg (ExecuteActions [tag.Action])
 
     | Play playList ->
         let model = { model with PlayList = Some playList }
@@ -323,11 +318,34 @@ let update (model:Model) (msg:Msg) =
         model, Cmd.none
 
     | CheckFirmware ->
-         model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
+        model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
 
     | FirmwareUpToDate _ ->
-         log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)
-         model, Cmd.none
+        log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)
+        model, Cmd.ofTask getStartupActions model ExecuteActions Err
+
+    | ExecuteActions actions ->
+        match actions with
+        | action::rest ->
+            match action with
+            | TagAction.UnknownTag ->
+                log.Warn "Unknown Tag"
+                model, Cmd.ofMsg (ExecuteActions rest)
+            | TagAction.StopMusik ->
+                model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (ExecuteActions rest) ]
+            | TagAction.PlayMusik url ->
+                let playList : PlayList = {
+                    Uri = url
+                    MediaFiles = [| url |]
+                    Position = 0
+                }
+                model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]
+            | TagAction.PlayYoutube youtubeURL ->
+                model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (PlayYoutube youtubeURL); Cmd.ofMsg (ExecuteActions rest) ]
+            | TagAction.PlayBlobMusik _ ->
+                log.Error "Blobs links need to be converted to direct links by the tag server"
+                model, Cmd.ofMsg (ExecuteActions rest)
+        | _ -> model, Cmd.none
 
     | Err exn ->
         log.ErrorFormat("Error: {0}", exn.Message)

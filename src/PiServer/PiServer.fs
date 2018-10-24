@@ -237,11 +237,11 @@ let getAllYoutubeTags (model:Model) = task {
 let update (model:Model) (msg:Msg) =
     match msg with
     | VolumeUp ->
-        match model.MediaPlayerProcess with Some p -> p.StandardInput.Write("+") | _ -> ()
+        match model.MediaPlayerProcess with Some p -> p.StandardInput.Write("+"); p.StandardInput.Flush() | _ -> ()
         { model with Volume = model.Volume + 0.1 }, Cmd.none
 
     | VolumeDown ->
-        match model.MediaPlayerProcess with Some p -> p.StandardInput.Write("-") | _ -> ()
+        match model.MediaPlayerProcess with Some p -> p.StandardInput.Write("-"); p.StandardInput.Flush() | _ -> ()
         { model with Volume = model.Volume - 0.1 }, Cmd.none
 
     | NewRFID rfid ->
@@ -274,6 +274,7 @@ let update (model:Model) (msg:Msg) =
                     let startInfo = System.Diagnostics.ProcessStartInfo()
                     startInfo.FileName <- "omxplayer"
                     startInfo.Arguments <- playList.MediaFiles.[playList.Position]
+                    startInfo.RedirectStandardInput <- true
                     p.StartInfo <- startInfo
 
                     p.Start() |> ignore

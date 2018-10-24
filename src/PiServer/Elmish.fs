@@ -36,7 +36,6 @@ type Program<'Model,'Msg>(log:log4net.ILog, init: unit -> 'Model * Cmd<'Msg>, up
             log.Info (sprintf "Msg: %A" msg)
             try
                 let newModel,newCmds = update model msg
-                log.Info (sprintf "Model: %A" newModel)
                 for cmd in newCmds do
                     cmd inbox.Post
                 return! messageLoop newModel
@@ -48,7 +47,6 @@ type Program<'Model,'Msg>(log:log4net.ILog, init: unit -> 'Model * Cmd<'Msg>, up
 
         try
             let (initialModel:'Model,newCmds) = init()
-            log.Info (sprintf "Initial model: %A" initialModel)
             for cmd in newCmds do
                 cmd inbox.Post
             messageLoop initialModel

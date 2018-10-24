@@ -238,6 +238,7 @@ dbus-send --print-reply --session --reply-timeout=500 \
     startInfo.UseShellExecute <- false
     startInfo.CreateNoWindow <- true
     p.StartInfo <- startInfo
+    log.InfoFormat("Setting volume to {0}", volume)
     p.Start() |> ignore
 
 

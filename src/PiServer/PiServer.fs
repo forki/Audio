@@ -54,12 +54,11 @@ type Msg =
 | ExecuteActions of TagAction list
 | RFIDRemoved
 | NewTag of Tag
-| MusicStopped of unit
 | Play of PlayList
 | PlayYoutube of string
 | NextMediaFile
 | PreviousMediaFile
-| PlayerStopped
+| PlayerStopped of unit
 | StartMediaPlayer
 | Started of Process
 | FinishPlaylist
@@ -241,15 +240,15 @@ let update (model:Model) (msg:Msg) =
         match model.PlayList with
         | Some playList ->
             if playList.Position < 0 || playList.Position >= playList.MediaFiles.Length then
-                log.ErrorFormat("Playlist has only {0} elements. Can't play media file {1}.", playList.MediaFiles.Length , playList.Position + 1)
-                model, Cmd.none
+                log.InfoFormat("Playlist has only {0} elements. Can't play media file {1}.", playList.MediaFiles.Length , playList.Position + 1)
+                model, Cmd.ofMsg FinishPlaylist
             else
                 let start dispatch =
                     killMusikPlayer() |> Async.AwaitTask |> Async.RunSynchronously
                     log.InfoFormat( "Playing audio file {0} / {1}", playList.Position + 1, playList.MediaFiles.Length)
                     let p = new System.Diagnostics.Process()
                     p.EnableRaisingEvents <- true
-                    p.Exited.Add (fun _ -> dispatch PlayerStopped)
+                    p.Exited.Add (fun _ -> dispatch (PlayerStopped ()))
 
                     let startInfo = System.Diagnostics.ProcessStartInfo()
                     startInfo.FileName <- "omxplayer"
@@ -265,26 +264,23 @@ let update (model:Model) (msg:Msg) =
     | Started p ->
         { model with MediaPlayerProcess = Some p }, Cmd.none
 
-    | PlayerStopped ->
-        { model with MediaPlayerProcess = None }, Cmd.none
-
-    | NextMediaFile ->
+    | PlayerStopped _ ->
         match model.PlayList with
         | Some playList ->
-            let playList = { playList with Position = playList.Position + 1 }
-            if playList.Position <= 0 || playList.Position >= playList.MediaFiles.Length then
-                model, Cmd.ofMsg FinishPlaylist
-            else
-                { model with PlayList = Some playList }, Cmd.ofMsg StartMediaPlayer
-        | None ->
-            log.Error "No playlist set"
-            model, Cmd.none
+            { model with
+                PlayList = Some { playList with Position = playList.Position + 1 }
+                MediaPlayerProcess = None }, Cmd.ofMsg StartMediaPlayer
+        | _ ->
+            { model with MediaPlayerProcess = None }, Cmd.none
+
+    | NextMediaFile ->
+        model, Cmd.ofTask killMusikPlayer () PlayerStopped Err
 
     | PreviousMediaFile ->
         match model.PlayList with
         | Some playList ->
-            let playList = { playList with Position = max 0 (playList.Position - 1) }
-            { model with PlayList = Some playList }, Cmd.ofMsg StartMediaPlayer
+            let playList = { playList with Position = max -1 (playList.Position - 2) }
+            { model with PlayList = Some playList }, Cmd.ofTask killMusikPlayer () PlayerStopped Err
         | None ->
             log.Error "No playlist set"
             model, Cmd.none
@@ -298,12 +294,12 @@ let update (model:Model) (msg:Msg) =
                 Position = 0
             }
 
-            model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (Play playList)]
+            model, Cmd.batch [Cmd.ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (Play playList)]
         | _ ->
             model, Cmd.ofMsg (DiscoverYoutube (youtubeURL,true))
 
     | FinishPlaylist ->
-        { model with PlayList = None }, Cmd.ofTask killMusikPlayer () MusicStopped Err
+        { model with PlayList = None }, Cmd.ofTask killMusikPlayer () PlayerStopped Err
 
     | DiscoverYoutube (youtubeURL,playAfterwards) ->
         model, Cmd.ofTask discoverYoutubeLink youtubeURL (fun files -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
@@ -314,10 +310,6 @@ let update (model:Model) (msg:Msg) =
             model, Cmd.ofMsg (PlayYoutube youtubeURL)
         else
             model, Cmd.none
-
-    | MusicStopped _ ->
-        log.Info "Music stopped"
-        model, Cmd.none
 
     | CheckFirmware ->
         model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
@@ -334,16 +326,16 @@ let update (model:Model) (msg:Msg) =
                 log.Warn "Unknown Tag"
                 model, Cmd.ofMsg (ExecuteActions rest)
             | TagAction.StopMusik ->
-                model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (ExecuteActions rest) ]
+                model, Cmd.batch [Cmd.ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (ExecuteActions rest) ]
             | TagAction.PlayMusik url ->
                 let playList : PlayList = {
                     Uri = url
                     MediaFiles = [| url |]
                     Position = 0
                 }
-                model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]
+                model, Cmd.batch [Cmd.ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]
             | TagAction.PlayYoutube youtubeURL ->
-                model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (PlayYoutube youtubeURL); Cmd.ofMsg (ExecuteActions rest) ]
+                model, Cmd.batch [Cmd.ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (PlayYoutube youtubeURL); Cmd.ofMsg (ExecuteActions rest) ]
             | TagAction.PlayBlobMusik _ ->
                 log.Error "Blobs links need to be converted to direct links by the tag server"
                 model, Cmd.ofMsg (ExecuteActions rest)

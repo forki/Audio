@@ -71,7 +71,7 @@ type Msg =
 | Noop of unit
 | DiscoverYoutube of string * bool
 | GetAllYoutubeTags
-| DiscoverAllYoutubeLinks of string []
+| DiscoveredAllYoutubeLinks of (string * string []) []
 | NewYoutubeMediaFiles of string * string [] * bool
 | Err of exn
 
@@ -205,7 +205,7 @@ let discoverYoutubeLink (youtubeURL:string) = task {
         |> Array.filter (fun x -> x.Contains "&mime=audio")
 
     log.InfoFormat("{0} Youtube audio links detected", links.Length)
-    return links
+    return youtubeURL,links
 }
 
 let getStartupActions (model:Model) = task {
@@ -218,7 +218,7 @@ let getStartupActions (model:Model) = task {
     | Ok actions -> return actions
 }
 
-let getAllYoutubeTags (model:Model) = task {
+let discoverAllYoutubeLinks (model:Model) = task {
     use webClient = new System.Net.WebClient()
     let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
@@ -226,12 +226,13 @@ let getAllYoutubeTags (model:Model) = task {
     match Decode.fromString TagList.Decoder result with
     | Error msg -> return failwith msg
     | Ok list ->
-        return
+        return!
             list.Tags
             |> Array.choose (fun tag ->
                 match tag.Action with
-                | TagAction.PlayYoutube youtubeURL -> Some youtubeURL
+                | TagAction.PlayYoutube youtubeURL -> Some(discoverYoutubeLink youtubeURL)
                 | _ -> None)
+            |> Task.WhenAll
 }
 
 let update (model:Model) (msg:Msg) =
@@ -327,13 +328,13 @@ let update (model:Model) (msg:Msg) =
         { model with PlayList = None }, Cmd.ofTask killMusikPlayer () PlayerStopped Err
 
     | DiscoverYoutube (youtubeURL,playAfterwards) ->
-        model, Cmd.ofTask discoverYoutubeLink youtubeURL (fun files -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
+        model, Cmd.ofTask discoverYoutubeLink youtubeURL (fun (youtubeURL,files) -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
 
     | GetAllYoutubeTags ->
-        model, Cmd.ofTask getAllYoutubeTags model DiscoverAllYoutubeLinks Err
+        model, Cmd.ofTask discoverAllYoutubeLinks model DiscoveredAllYoutubeLinks Err
 
-    | DiscoverAllYoutubeLinks files ->
-        model, Cmd.batch [for file in files -> Cmd.ofMsg (DiscoverYoutube (file,false))]
+    | DiscoveredAllYoutubeLinks allFiles ->
+        model, Cmd.batch [for (youtubeURL,files) in allFiles -> Cmd.ofMsg (NewYoutubeMediaFiles (youtubeURL,files,false))]
 
     | NewYoutubeMediaFiles (youtubeURL,files,playAfterwards) ->
         let model = { model with YoutubeLinks = model.YoutubeLinks |> Map.add youtubeURL files }

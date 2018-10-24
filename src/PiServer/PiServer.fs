@@ -241,7 +241,7 @@ let update (model:Model) (msg:Msg) =
     | Play playList ->
         let model = { model with PlayList = Some playList }
         log.InfoFormat("Playing new PlayList: {0}: Files: {1}", playList.Uri, playList.MediaFiles.Length)
-        model, Cmd.none
+        model, Cmd.ofMsg StartMediaPlayer
 
     | StartMediaPlayer ->
         match model.PlayList with

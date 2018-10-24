@@ -29,7 +29,7 @@ module Cmd =
             | exn -> dispatch (failM exn)]
 
 
-type Program<'Model,'Msg>(log:log4net.ILog, init: unit -> 'Model, update: 'Model -> 'Msg -> ('Model * (Cmd<'Msg>))) =
+type Program<'Model,'Msg>(log:log4net.ILog, init: unit -> 'Model * Cmd<'Msg>, update: 'Model -> 'Msg -> ('Model * Cmd<'Msg>)) =
     let agent = MailboxProcessor.Start (fun inbox ->
         let rec messageLoop (model:'Model) = async {
             let! msg = inbox.Receive()
@@ -47,8 +47,10 @@ type Program<'Model,'Msg>(log:log4net.ILog, init: unit -> 'Model, update: 'Model
         }
 
         try
-            let (initialModel:'Model) = init()
+            let (initialModel:'Model,newCmds) = init()
             log.InfoFormat (sprintf "Initial model: %A" initialModel)
+            for cmd in newCmds do
+                cmd inbox.Post
             messageLoop initialModel
         with
         | exn ->

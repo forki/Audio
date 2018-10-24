@@ -15,6 +15,9 @@ open GeneralIO
 open Elmish
 
 
+
+let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
+
 let log =
     let log4netConfig = XmlDocument()
     log4netConfig.Load(File.OpenRead("log4net.config"))
@@ -46,6 +49,8 @@ type Msg =
 | VolumeUp
 | VolumeDown
 | NewRFID of string
+| CheckFirmware
+| FirmwareUpToDate of unit
 | RFIDRemoved
 | NewTag of Tag
 | MusicStopped of unit
@@ -60,16 +65,15 @@ type Msg =
 | NewYoutubeMediaFiles of string * string [] * bool
 | Err of exn
 
-let init () : Model = {
-    PlayList = None
-    FirmwareUpdateInterval = TimeSpan.FromHours 1.
-    UserID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
-    TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
-    Volume = 0.5 // TODO: load from webserver
-    RFID = None
-    YoutubeLinks = Map.empty
-    MediaPlayerProcess = None
-}
+let init () : Model * Cmd<Msg> =
+    { PlayList = None
+      FirmwareUpdateInterval = TimeSpan.FromHours 1.
+      UserID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
+      TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
+      Volume = 0.5 // TODO: load from webserver
+      RFID = None
+      YoutubeLinks = Map.empty
+      MediaPlayerProcess = None }, Cmd.ofMsg CheckFirmware
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
 
@@ -104,9 +108,66 @@ let killMusikPlayer() = task {
 }
 
 
+let mutable nextFirmwareCheck = DateTimeOffset.MinValue
 
-let dispatch (msg:Msg) () = ()  // TODO: message loop
 
+let runFirmwareUpdate() =
+    let p = new Process()
+    let startInfo = new ProcessStartInfo()
+    startInfo.WorkingDirectory <- "/home/pi/firmware/"
+    startInfo.FileName <- "sudo"
+    startInfo.Arguments <- "sh update.sh"
+    startInfo.RedirectStandardOutput <- true
+    startInfo.UseShellExecute <- false
+    startInfo.CreateNoWindow <- true
+    p.StartInfo <- startInfo
+    p.Start() |> ignore
+
+
+
+let checkFirmware (model:Model) = task {
+    use webClient = new System.Net.WebClient()
+    System.Net.ServicePointManager.SecurityProtocol <-
+        System.Net.ServicePointManager.SecurityProtocol |||
+          System.Net.SecurityProtocolType.Tls11 |||
+          System.Net.SecurityProtocolType.Tls12
+
+    let url = sprintf @"%s/api/firmware" model.TagServer
+    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+
+    match Decode.fromString Firmware.Decoder result with
+    | Error msg ->
+        log.ErrorFormat("Decoder error: {0}", msg)
+        return failwith msg
+    | Ok firmware ->
+        try
+            nextFirmwareCheck <- DateTimeOffset.UtcNow.Add model.FirmwareUpdateInterval
+            log.InfoFormat("Latest firmware on server: {0}", firmware.Version)
+            let serverVersion = Paket.SemVer.Parse firmware.Version
+            let localVersion = Paket.SemVer.Parse ReleaseNotes.Version
+            if serverVersion > localVersion then
+                let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".zip")
+                log.InfoFormat("Starting download of {0}", firmware.Url)
+                do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
+                log.InfoFormat "Download done."
+
+                if System.IO.Directory.Exists firmwareTarget then
+                    System.IO.Directory.Delete(firmwareTarget,true)
+                System.IO.Directory.CreateDirectory(firmwareTarget) |> ignore
+                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, firmwareTarget)
+                System.IO.File.Delete localFileName
+                runFirmwareUpdate()
+                while true do
+                    log.InfoFormat "Running firmware update."
+                    do! Task.Delay 3000
+                    ()
+            else
+                if System.IO.Directory.Exists firmwareTarget then
+                    System.IO.Directory.Delete(firmwareTarget,true)
+        with
+        | exn ->
+            log.ErrorFormat("Upgrade error: {0}", exn.Message)
+}
 
 
 
@@ -261,72 +322,18 @@ let update (model:Model) (msg:Msg) =
         log.InfoFormat "Music stopped"
         model, Cmd.none
 
+    | CheckFirmware ->
+         model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
+
+    | FirmwareUpToDate _ ->
+         log.InfoFormat( "Firmware {0} is uptodate.", ReleaseNotes.Version)
+         model, Cmd.none
+
     | Err exn ->
         log.ErrorFormat( "Error: {0}", exn.Message)
         model, Cmd.none
 
 
-
-let runFirmwareUpdate() =
-    let p = new Process()
-    let startInfo = new ProcessStartInfo()
-    startInfo.WorkingDirectory <- "/home/pi/firmware/"
-    startInfo.FileName <- "sudo"
-    startInfo.Arguments <- "sh update.sh"
-    startInfo.RedirectStandardOutput <- true
-    startInfo.UseShellExecute <- false
-    startInfo.CreateNoWindow <- true
-    p.StartInfo <- startInfo
-    p.Start() |> ignore
-
-let mutable nextFirmwareCheck = DateTimeOffset.MinValue
-
-let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
-
-let checkFirmware (model:Model) = task {
-    use webClient = new System.Net.WebClient()
-    System.Net.ServicePointManager.SecurityProtocol <-
-        System.Net.ServicePointManager.SecurityProtocol |||
-          System.Net.SecurityProtocolType.Tls11 |||
-          System.Net.SecurityProtocolType.Tls12
-
-    let url = sprintf @"%s/api/firmware" model.TagServer
-    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
-
-    match Decode.fromString Firmware.Decoder result with
-    | Error msg ->
-        log.ErrorFormat("Decoder error: {0}", msg)
-        return failwith msg
-    | Ok firmware ->
-        try
-            nextFirmwareCheck <- DateTimeOffset.UtcNow.Add model.FirmwareUpdateInterval
-            log.InfoFormat("Latest firmware on server: {0}", firmware.Version)
-            let serverVersion = Paket.SemVer.Parse firmware.Version
-            let localVersion = Paket.SemVer.Parse ReleaseNotes.Version
-            if serverVersion > localVersion then
-                let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".zip")
-                log.InfoFormat("Starting download of {0}", firmware.Url)
-                do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
-                log.InfoFormat "Download done."
-
-                if System.IO.Directory.Exists firmwareTarget then
-                    System.IO.Directory.Delete(firmwareTarget,true)
-                System.IO.Directory.CreateDirectory(firmwareTarget) |> ignore
-                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, firmwareTarget)
-                System.IO.File.Delete localFileName
-                runFirmwareUpdate()
-                while true do
-                    log.InfoFormat "Running firmware update."
-                    do! Task.Delay 3000
-                    ()
-            else
-                if System.IO.Directory.Exists firmwareTarget then
-                    System.IO.Directory.Delete(firmwareTarget,true)
-                log.InfoFormat( "Firmware {0} is uptodate.", ReleaseNotes.Version)
-        with
-        | exn ->
-            log.ErrorFormat("Upgrade error: {0}", exn.Message)
-}
 
 // let executeStartupActions (model:Model) = task {
 //     try
@@ -386,13 +393,12 @@ let builder = application {
     use_gzip
 }
 
-let rfidLoop dispatch model = task {
+let rfidLoop dispatch = task {
     use app = builder.Build()
     app.Start()
 
     log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
 
-    do! checkFirmware model
     // do! executeStartupActions model
     // do! discoverAllYoutubeLinks model
 
@@ -409,8 +415,7 @@ let rfidLoop dispatch model = task {
 
         if String.IsNullOrEmpty token then
             if nextFirmwareCheck < DateTimeOffset.UtcNow then
-                let! _ = checkFirmware model
-                ()
+                dispatch CheckFirmware
             else
                 let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
                 ()
@@ -433,6 +438,5 @@ let rfidLoop dispatch model = task {
 
 let app = Program(log,init,update)
 
-let model = init()
 
-(rfidLoop app.Dispatch model).Wait()
+(rfidLoop app.Dispatch).Wait()

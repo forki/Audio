@@ -13,11 +13,9 @@ open System.Xml
 open System.Reflection
 open GeneralIO
 
-let tagServer = "https://audio-hub.azurewebsites.net"
-let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f"
 
 
-let configureLogging() =
+let log =
     let log4netConfig = XmlDocument()
     log4netConfig.Load(File.OpenRead("log4net.config"))
     let repo = log4net.LogManager.CreateRepository(Assembly.GetEntryAssembly(), typeof<log4net.Repository.Hierarchy.Hierarchy>)
@@ -26,11 +24,21 @@ let configureLogging() =
     let log = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType)
     log
 
+type Model = {
+    CurrentMediaFile : string option
+    FirmwareUpdateInterval : TimeSpan
+    UserID : string
+    TagServer : string
+}
 
-let firmwareUpdateInterval = TimeSpan.FromHours 1.
-let log = configureLogging()
+let init () : Model = {
+    CurrentMediaFile = None
+    FirmwareUpdateInterval = TimeSpan.FromHours 1.
+    UserID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
+    TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
+}
 
-let port = 8086us
+
 
 let mutable runningProcess = null
 
@@ -64,12 +72,12 @@ let mutable currentAudioProcess = null
 
 let play (myTaskID:string) (uri:string) = task {
     let mutable currentAudio = 0
-    let mutable uris = 
+    let mutable uris =
         match youtubeLinks.TryGetValue uri with
         | true, links -> links
         | _ -> [| uri |]
     log.InfoFormat( "Playing with TaskID: {0}: Files: {1}", myTaskID, uris.Length)
-    
+
     while myTaskID = taskID && currentAudio >= 0 && currentAudio < uris.Length do
         log.InfoFormat( "Playing audio file {0} / {1}", currentAudio + 1, uris.Length)
         let mediaFile = uris.[currentAudio]
@@ -174,7 +182,7 @@ let executeAction (action:TagAction) =
         task {
             do! stop()
             taskID <- Guid.NewGuid().ToString()
-            currentTask <- play taskID url 
+            currentTask <- play taskID url
         }
     | TagAction.PlayYoutube youtubeURL ->
         task {
@@ -188,10 +196,10 @@ let executeAction (action:TagAction) =
         failwithf "Blobs links need to be converted to direct links by the tag server"
 
 
-let executeTag (tag:string) = task {
+let executeTag (model:Model) (tag:string) = task {
     try
         use webClient = new System.Net.WebClient()
-        let tagsUrl tag = sprintf @"%s/api/tags/%s/%s" tagServer userID tag
+        let tagsUrl tag = sprintf @"%s/api/tags/%s/%s" model.TagServer model.UserID tag
         let! result = webClient.DownloadStringTaskAsync(System.Uri (tagsUrl tag))
 
         match Decode.fromString Tag.Decoder result with
@@ -221,14 +229,14 @@ let mutable nextFirmwareCheck = DateTimeOffset.MinValue
 
 let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
 
-let checkFirmware () = task {
+let checkFirmware (model:Model) = task {
     use webClient = new System.Net.WebClient()
     System.Net.ServicePointManager.SecurityProtocol <-
         System.Net.ServicePointManager.SecurityProtocol |||
           System.Net.SecurityProtocolType.Tls11 |||
           System.Net.SecurityProtocolType.Tls12
 
-    let url = sprintf @"%s/api/firmware" tagServer
+    let url = sprintf @"%s/api/firmware" model.TagServer
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
     match Decode.fromString Firmware.Decoder result with
@@ -237,7 +245,7 @@ let checkFirmware () = task {
         return failwith msg
     | Ok firmware ->
         try
-            nextFirmwareCheck <- DateTimeOffset.UtcNow.Add firmwareUpdateInterval
+            nextFirmwareCheck <- DateTimeOffset.UtcNow.Add model.FirmwareUpdateInterval
             log.InfoFormat("Latest firmware on server: {0}", firmware.Version)
             let serverVersion = Paket.SemVer.Parse firmware.Version
             let localVersion = Paket.SemVer.Parse ReleaseNotes.Version
@@ -266,10 +274,10 @@ let checkFirmware () = task {
             log.ErrorFormat("Upgrade error: {0}", exn.Message)
 }
 
-let executeStartupActions () = task {
+let executeStartupActions (model:Model) = task {
     try
         use webClient = new System.Net.WebClient()
-        let url = sprintf @"%s/api/startup" tagServer
+        let url = sprintf @"%s/api/startup" model.TagServer
         let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
         match Decode.fromString (Decode.list TagAction.Decoder) result with
@@ -284,11 +292,11 @@ let executeStartupActions () = task {
         log.ErrorFormat("Startup error: {0}", exn.Message)
 }
 
-let discoverAllYoutubeLinks () = task {
+let discoverAllYoutubeLinks (model:Model) = task {
     while true do
         try
             use webClient = new System.Net.WebClient()
-            let url = sprintf  @"%s/api/usertags/%s" tagServer userID
+            let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
             let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
             match Decode.fromString TagList.Decoder result with
@@ -317,49 +325,46 @@ let configureSerialization (services:IServiceCollection) =
     services
 
 let builder = application {
-    url ("http://0.0.0.0:" + port.ToString() + "/")
+    url "http://0.0.0.0:8086/"
     use_router webApp
     memory_cache
     service_config configureSerialization
     use_gzip
 }
 
-let app = builder.Build()
-app.Start()
+let rfidLoop (model:Model) = task {
+    use app = builder.Build()
+    app.Start()
 
-log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
+    log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
 
-let firmwareCheck = checkFirmware()
-firmwareCheck.Wait()
+    do! checkFirmware model
+    do! executeStartupActions model
+    do! discoverAllYoutubeLinks model
 
-let startupTask = executeStartupActions()
-startupTask.Wait()
+    let mutable running = null
 
-let youtubeDiscoverer = discoverAllYoutubeLinks ()
+    let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-let mutable running = null
-
-let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
-
-
-let rfidLoop() = task {
     use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
     use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
     use _quieterButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () ->  log.InfoFormat "Quiter button pressed"; if not (isNull currentAudioProcess) then currentAudioProcess.StandardInput.Write("-") |> ignore)
     use _louderButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> log.InfoFormat "Louder button pressed"; if not (isNull currentAudioProcess) then currentAudioProcess.StandardInput.Write("+") |> ignore)
+
+
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
 
         if String.IsNullOrEmpty token then
             if nextFirmwareCheck < DateTimeOffset.UtcNow then
-                let! _ = checkFirmware()
+                let! _ = checkFirmware model
                 ()
             else
                 let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
                 ()
         else
             log.InfoFormat("RFID/NFC: {0}", token)
-            running <- executeTag token
+            running <- executeTag model token
             let mutable waiting = true
             while waiting do
                 do! Task.Delay(TimeSpan.FromSeconds 0.5)
@@ -377,4 +382,6 @@ let rfidLoop() = task {
             ()
 }
 
-rfidLoop().Wait()
+let model = init()
+
+rfidLoop(model).Wait()

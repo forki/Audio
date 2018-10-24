@@ -7,14 +7,12 @@ open System
 open System.IO
 open Microsoft.AspNetCore.NodeServices
 open Thoth.Json.Net
-open ServerCore.Domain
 open System.Threading.Tasks
 open System.Diagnostics
 open System.Xml
 open System.Reflection
 open GeneralIO
 open Elmish
-open System
 
 
 
@@ -61,6 +59,7 @@ type Msg =
 | PlayYoutube of string
 | NextMediaFile
 | PreviousMediaFile
+| PlayerStopped
 | StartMediaPlayer
 | Started of Process
 | FinishPlaylist
@@ -250,7 +249,7 @@ let update (model:Model) (msg:Msg) =
                     log.InfoFormat( "Playing audio file {0} / {1}", playList.Position + 1, playList.MediaFiles.Length)
                     let p = new System.Diagnostics.Process()
                     p.EnableRaisingEvents <- true
-                    p.Exited.Add (fun _ -> dispatch NextMediaFile)
+                    p.Exited.Add (fun _ -> dispatch PlayerStopped)
 
                     let startInfo = System.Diagnostics.ProcessStartInfo()
                     startInfo.FileName <- "omxplayer"
@@ -265,6 +264,9 @@ let update (model:Model) (msg:Msg) =
 
     | Started p ->
         { model with MediaPlayerProcess = Some p }, Cmd.none
+
+    | PlayerStopped ->
+        { model with MediaPlayerProcess = None }, Cmd.none
 
     | NextMediaFile ->
         match model.PlayList with

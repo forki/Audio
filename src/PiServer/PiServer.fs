@@ -258,7 +258,7 @@ let update (model:Model) (msg:Msg) =
                     p.StartInfo <- startInfo
 
                     p.Start() |> ignore
-                model, Cmd.none
+                model, [start]
         | None ->
             log.Error "No playlist set"
             model, Cmd.none

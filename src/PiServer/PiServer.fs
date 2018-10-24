@@ -244,11 +244,11 @@ dbus-send --print-reply --session --reply-timeout=500 \
 let update (model:Model) (msg:Msg) =
     match msg with
     | VolumeUp ->
-        let vol = model.Volume + 0.1
+        let vol = min 1. (model.Volume + 0.1)
         { model with Volume = vol }, Cmd.ofFunc setVolumeScript vol Noop Err
 
     | VolumeDown ->
-        let vol = model.Volume - 0.1
+        let vol = max 0. (model.Volume - 0.1)
         { model with Volume = vol }, Cmd.ofFunc setVolumeScript vol Noop Err
 
     | NewRFID rfid ->
@@ -280,7 +280,8 @@ let update (model:Model) (msg:Msg) =
 
                     let startInfo = System.Diagnostics.ProcessStartInfo()
                     startInfo.FileName <- "omxplayer"
-                    startInfo.Arguments <- playList.MediaFiles.[playList.Position]
+                    let volume = int (Math.Round(2000. * Math.Log10 model.Volume))
+                    startInfo.Arguments <- sprintf "--vol %d " volume + playList.MediaFiles.[playList.Position]
                     p.StartInfo <- startInfo
 
                     p.Start() |> ignore

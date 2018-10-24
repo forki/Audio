@@ -10,13 +10,14 @@
         <Compile Include="..\Shared\Shared.fs" />
         <Compile Include="GeneralIO.fs" />
         <Compile Include="SemVer.fs" />
+        <Compile Include="Elmish.fs" />
         <Compile Include="PiServer.fs" />
     </ItemGroup>
     <ItemGroup>
         <None Include="read-tag.js">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
-        
+
         <None Include="package.json">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>

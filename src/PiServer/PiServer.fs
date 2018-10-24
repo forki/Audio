@@ -12,7 +12,7 @@ open System.Diagnostics
 open System.Xml
 open System.Reflection
 open GeneralIO
-
+open Elmish
 
 
 let log =
@@ -24,28 +24,66 @@ let log =
     let log = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType)
     log
 
+
+type PlayList = {
+    Uri : string
+    MediaFiles: string []
+    Position : int
+}
+
 type Model = {
-    CurrentMediaFile : string option
+    PlayList : PlayList option
     FirmwareUpdateInterval : TimeSpan
     UserID : string
     TagServer : string
+    Volume : float
+    RFID : string option
+    YoutubeLinks : Map<string,string[]>
+    MediaPlayerProcess : Process option
 }
 
+type Msg =
+| VolumeUp
+| VolumeDown
+| NewRFID of string
+| RFIDRemoved
+| NewTag of Tag
+| MusicStopped of unit
+| Play of PlayList
+| PlayYoutube of string
+| NextMediaFile
+| PreviousMediaFile
+| StartMediaPlayer
+| Started of Process
+| FinishPlaylist
+| DiscoverYoutube of string * bool
+| NewYoutubeMediaFiles of string * string [] * bool
+| Err of exn
+
 let init () : Model = {
-    CurrentMediaFile = None
+    PlayList = None
     FirmwareUpdateInterval = TimeSpan.FromHours 1.
     UserID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
     TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
+    Volume = 0.5 // TODO: load from webserver
+    RFID = None
+    YoutubeLinks = Map.empty
+    MediaPlayerProcess = None
 }
 
-
-
-let mutable runningProcess = null
-
-let mutable audioCommand = None
-let mutable taskID = Guid.NewGuid().ToString()
-
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
+
+
+let resolveRFID (model:Model,token:string) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf @"%s/api/tags/%s/%s" model.TagServer model.UserID token
+    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+
+    match Decode.fromString Tag.Decoder result with
+    | Error msg -> return failwith msg
+    | Ok tag -> return tag
+}
+
 
 let killMusikPlayer() = task {
     for p in getMusikPlayerProcesses() do
@@ -66,48 +104,10 @@ let killMusikPlayer() = task {
 }
 
 
-let youtubeLinks = System.Collections.Concurrent.ConcurrentDictionary<_,_>()
 
-let mutable currentAudioProcess = null
+let dispatch (msg:Msg) () = ()  // TODO: message loop
 
-let play (myTaskID:string) (uri:string) = task {
-    let mutable currentAudio = 0
-    let mutable uris =
-        match youtubeLinks.TryGetValue uri with
-        | true, links -> links
-        | _ -> [| uri |]
-    log.InfoFormat( "Playing with TaskID: {0}: Files: {1}", myTaskID, uris.Length)
 
-    while myTaskID = taskID && currentAudio >= 0 && currentAudio < uris.Length do
-        log.InfoFormat( "Playing audio file {0} / {1}", currentAudio + 1, uris.Length)
-        let mediaFile = uris.[currentAudio]
-        let p = new System.Diagnostics.Process()
-        runningProcess <- p
-        let startInfo = System.Diagnostics.ProcessStartInfo()
-        startInfo.FileName <- "omxplayer"
-        startInfo.Arguments <- mediaFile
-        p.StartInfo <- startInfo
-        do! killMusikPlayer()
-        do! Task.Delay 100
-
-        let _ = p.Start()
-        currentAudioProcess <- p
-
-        while currentAudio >= 0 && not p.HasExited do
-            do! Task.Delay 100
-
-        match audioCommand with
-        | Some System.Int32.MaxValue -> currentAudio <- System.Int32.MaxValue
-        | Some c -> currentAudio <- currentAudio + c
-        | None -> currentAudio <- currentAudio + 1
-        if currentAudio < 0 then currentAudio <- 0
-
-        audioCommand <- None
-        uris <-
-            match youtubeLinks.TryGetValue uri with
-            | true, links -> links
-            | _ -> [| uri |]
-}
 
 
 let discoverYoutubeLink (youtubeURL:string) = task {
@@ -137,81 +137,135 @@ let discoverYoutubeLink (youtubeURL:string) = task {
     return links
 }
 
+let update (model:Model) (msg:Msg) =
+    match msg with
+    | VolumeUp ->
+        // //log.InfoFormat "Volume up button pressed"; if not (isNull currentAudioProcess) then currentAudioProcess.StandardInput.Write("+") |> ignore)
+        { model with Volume = model.Volume + 0.1 }, Cmd.none
 
-let getYoutubeLink youtubeURL = task {
-    match youtubeLinks.TryGetValue youtubeURL with
-    | true,_ -> ()
-    | _ ->
-        let! vlinks = discoverYoutubeLink youtubeURL
-        youtubeLinks.AddOrUpdate(youtubeURL,vlinks,Func<_,_,_>(fun _ _ -> vlinks)) |> ignore
-}
+    | VolumeDown ->
+         // log.InfoFormat "Volume down button pressed"; if not (isNull currentAudioProcess) then currentAudioProcess.StandardInput.Write("-") |> ignore)
+        { model with Volume = model.Volume - 0.1 }, Cmd.none
 
+    | NewRFID rfid ->
+        log.InfoFormat("RFID/NFC: {0}", rfid)
+        { model with RFID = Some rfid }, Cmd.ofTask resolveRFID (model,rfid) NewTag Err
 
-let stop () = task {
-    taskID <- Guid.NewGuid().ToString()
-    audioCommand <- Some System.Int32.MaxValue
-    do! killMusikPlayer()
-}
+    | RFIDRemoved ->
+        { model with RFID = None }, Cmd.ofMsg FinishPlaylist
 
-let next () = task {
-    log.InfoFormat "Next button pressed"
-    audioCommand <- Some 1
-    do! killMusikPlayer()
-}
+    | NewTag tag ->
+        log.InfoFormat( "Object: {0}", tag.Object)
+        log.InfoFormat( "Description: {0}", tag.Description)
 
-let previous () = task {
-    log.InfoFormat "Previous button pressed"
-    audioCommand <- Some -1
-    do! killMusikPlayer()
-}
-
-let mutable currentTask = null
-
-let executeAction (action:TagAction) =
-    match action with
-    | TagAction.UnknownTag ->
-        task {
+        match tag.Action with
+        | TagAction.UnknownTag ->
             log.WarnFormat "Unknown Tag"
-        }
-    | TagAction.StopMusik ->
-        task {
-            let! _ = stop ()
-            log.InfoFormat "Musik stopped"
-        }
-    | TagAction.PlayMusik url ->
-        task {
-            do! stop()
-            taskID <- Guid.NewGuid().ToString()
-            currentTask <- play taskID url
-        }
-    | TagAction.PlayYoutube youtubeURL ->
-        task {
-            do! getYoutubeLink youtubeURL
-            log.InfoFormat( "Playing Youtube {0}", youtubeURL)
-            do! stop()
-            taskID <- Guid.NewGuid().ToString()
-            currentTask <- play taskID youtubeURL
-        }
-    | TagAction.PlayBlobMusik _ ->
-        failwithf "Blobs links need to be converted to direct links by the tag server"
+            model, []
+        | TagAction.StopMusik ->
+            model, Cmd.ofTask killMusikPlayer () MusicStopped Err
+        | TagAction.PlayMusik url ->
+            let playList : PlayList = {
+                Uri = url
+                MediaFiles = [| url |]
+                Position = 0
+            }
+            model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (Play playList)]
+        | TagAction.PlayYoutube youtubeURL ->
+            model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (PlayYoutube youtubeURL)]
+        | TagAction.PlayBlobMusik _ ->
+            log.ErrorFormat("Blobs links need to be converted to direct links by the tag server")
+            model, Cmd.none
+
+    | Play playList ->
+        let model = { model with PlayList = Some playList }
+        log.InfoFormat( "Playing new PlayList: {0}: Files: {1}", playList.Uri, playList.MediaFiles.Length)
+        model, Cmd.none
+
+    | StartMediaPlayer ->
+        match model.PlayList with
+        | Some playList ->
+            if playList.Position < 0 || playList.Position >= playList.MediaFiles.Length then
+                log.ErrorFormat("Playlist has only {0} elements. Can't play media file {1}.", playList.MediaFiles.Length , playList.Position + 1)
+                model, Cmd.none
+            else
+                let start dispatch =
+                    killMusikPlayer() |> Async.AwaitTask |> Async.RunSynchronously
+                    log.InfoFormat( "Playing audio file {0} / {1}", playList.Position + 1, playList.MediaFiles.Length)
+                    let p = new System.Diagnostics.Process()
+                    p.EnableRaisingEvents <- true
+                    p.Exited.Add (fun _ -> dispatch NextMediaFile)
+
+                    let startInfo = System.Diagnostics.ProcessStartInfo()
+                    startInfo.FileName <- "omxplayer"
+                    startInfo.Arguments <- playList.MediaFiles.[playList.Position]
+                    p.StartInfo <- startInfo
+
+                    p.Start() |> ignore
+                model, Cmd.none
+        | None ->
+            log.ErrorFormat("No playlist set")
+            model, Cmd.none
+
+    | Started p ->
+        { model with MediaPlayerProcess = Some p }, Cmd.none
+
+    | NextMediaFile ->
+        match model.PlayList with
+        | Some playList ->
+            let playList = { playList with Position = playList.Position + 1 }
+            if playList.Position <= 0 || playList.Position >= playList.MediaFiles.Length then
+                model, Cmd.ofMsg FinishPlaylist
+            else
+                { model with PlayList = Some playList }, Cmd.ofMsg StartMediaPlayer
+        | None ->
+            log.ErrorFormat("No playlist set")
+            model, Cmd.none
+
+    | PreviousMediaFile ->
+        match model.PlayList with
+        | Some playList ->
+            let playList = { playList with Position = max 0 (playList.Position - 1) }
+            { model with PlayList = Some playList }, Cmd.ofMsg StartMediaPlayer
+        | None ->
+            log.ErrorFormat("No playlist set")
+            model, Cmd.none
+
+    | PlayYoutube youtubeURL ->
+        match model.YoutubeLinks.TryGetValue youtubeURL with
+        | true, mediaFiles ->
+            let playList : PlayList = {
+                Uri = youtubeURL
+                MediaFiles = mediaFiles
+                Position = 0
+            }
+
+            model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (Play playList)]
+        | _ ->
+            model, Cmd.ofMsg (DiscoverYoutube (youtubeURL,true))
+
+    | FinishPlaylist ->
+        { model with PlayList = None }, Cmd.ofTask killMusikPlayer () MusicStopped Err
+
+    | DiscoverYoutube (youtubeURL,playAfterwards) ->
+        model, Cmd.ofTask discoverYoutubeLink youtubeURL (fun files -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
+
+    | NewYoutubeMediaFiles (youtubeURL,files,playAfterwards) ->
+        let model = { model with YoutubeLinks = model.YoutubeLinks |> Map.add youtubeURL files }
+        if playAfterwards then
+            model, Cmd.ofMsg (PlayYoutube youtubeURL)
+        else
+            model, Cmd.none
+
+    | MusicStopped _ ->
+        log.InfoFormat "Music stopped"
+        model, Cmd.none
+
+    | Err exn ->
+        log.ErrorFormat( "Error: {0}", exn.Message)
+        model, Cmd.none
 
 
-let executeTag (model:Model) (tag:string) = task {
-    try
-        use webClient = new System.Net.WebClient()
-        let tagsUrl tag = sprintf @"%s/api/tags/%s/%s" model.TagServer model.UserID tag
-        let! result = webClient.DownloadStringTaskAsync(System.Uri (tagsUrl tag))
-
-        match Decode.fromString Tag.Decoder result with
-        | Error msg -> return failwith msg
-        | Ok tag ->
-            log.InfoFormat( "Object: {0}", tag.Object)
-            log.InfoFormat( "Description: {0}", tag.Description)
-            return! executeAction tag.Action
-    with
-    | exn ->
-        log.ErrorFormat("Token action error: {0}", exn.Message)
-}
 
 let runFirmwareUpdate() =
     let p = new Process()
@@ -274,45 +328,45 @@ let checkFirmware (model:Model) = task {
             log.ErrorFormat("Upgrade error: {0}", exn.Message)
 }
 
-let executeStartupActions (model:Model) = task {
-    try
-        use webClient = new System.Net.WebClient()
-        let url = sprintf @"%s/api/startup" model.TagServer
-        let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+// let executeStartupActions (model:Model) = task {
+//     try
+//         use webClient = new System.Net.WebClient()
+//         let url = sprintf @"%s/api/startup" model.TagServer
+//         let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
-        match Decode.fromString (Decode.list TagAction.Decoder) result with
-        | Error msg -> return failwith msg
-        | Ok actions ->
-            log.InfoFormat("Actions: {0}", sprintf "%A" actions)
-            for t in actions do
-                let! _ = executeAction t
-                ()
-    with
-    | exn ->
-        log.ErrorFormat("Startup error: {0}", exn.Message)
-}
+//         match Decode.fromString (Decode.list TagAction.Decoder) result with
+//         | Error msg -> return failwith msg
+//         | Ok actions ->
+//             log.InfoFormat("Actions: {0}", sprintf "%A" actions)
+//             for t in actions do
+//                 let! _ = executeAction t
+//                 ()
+//     with
+//     | exn ->
+//         log.ErrorFormat("Startup error: {0}", exn.Message)
+// }
 
-let discoverAllYoutubeLinks (model:Model) = task {
-    while true do
-        try
-            use webClient = new System.Net.WebClient()
-            let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
-            let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+// let discoverAllYoutubeLinks (model:Model) = task {
+//     while true do
+//         try
+//             use webClient = new System.Net.WebClient()
+//             let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
+//             let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
-            match Decode.fromString TagList.Decoder result with
-            | Error msg -> return failwith msg
-            | Ok list ->
-                for tag in list.Tags do
-                    match tag.Action with
-                    | TagAction.PlayYoutube youtubeURL ->
-                        let! vlinks = discoverYoutubeLink youtubeURL
-                        youtubeLinks.AddOrUpdate(youtubeURL,vlinks,Func<_,_,_>(fun _ _ -> vlinks)) |> ignore
-                    | _ -> ()
-        with
-        | exn ->
-            log.ErrorFormat("Youtube discovering error: {0}", exn.Message)
-        do! Task.Delay(TimeSpan.FromMinutes 60.)
-}
+//             match Decode.fromString TagList.Decoder result with
+//             | Error msg -> return failwith msg
+//             | Ok list ->
+//                 for tag in list.Tags do
+//                     match tag.Action with
+//                     | TagAction.PlayYoutube youtubeURL ->
+//                         let! vlinks = discoverYoutubeLink youtubeURL
+//                         youtubeLinks.AddOrUpdate(youtubeURL,vlinks,Func<_,_,_>(fun _ _ -> vlinks)) |> ignore
+//                     | _ -> ()
+//         with
+//         | exn ->
+//             log.ErrorFormat("Youtube discovering error: {0}", exn.Message)
+//         do! Task.Delay(TimeSpan.FromMinutes 60.)
+// }
 
 let webApp = router {
     get "/version" (fun next ctx -> task {
@@ -332,24 +386,22 @@ let builder = application {
     use_gzip
 }
 
-let rfidLoop (model:Model) = task {
+let rfidLoop dispatch model = task {
     use app = builder.Build()
     app.Start()
 
     log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
 
     do! checkFirmware model
-    do! executeStartupActions model
-    do! discoverAllYoutubeLinks model
-
-    let mutable running = null
+    // do! executeStartupActions model
+    // do! discoverAllYoutubeLinks model
 
     let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-    use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> next() |> Async.AwaitTask |> Async.RunSynchronously)
-    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> previous() |> Async.AwaitTask |> Async.RunSynchronously)
-    use _quieterButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () ->  log.InfoFormat "Quiter button pressed"; if not (isNull currentAudioProcess) then currentAudioProcess.StandardInput.Write("-") |> ignore)
-    use _louderButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> log.InfoFormat "Louder button pressed"; if not (isNull currentAudioProcess) then currentAudioProcess.StandardInput.Write("+") |> ignore)
+    use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> dispatch NextMediaFile)
+    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> dispatch PreviousMediaFile)
+    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> dispatch VolumeDown)
+    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> dispatch VolumeUp)
 
 
     while true do
@@ -363,8 +415,7 @@ let rfidLoop (model:Model) = task {
                 let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
                 ()
         else
-            log.InfoFormat("RFID/NFC: {0}", token)
-            running <- executeTag model token
+            dispatch (NewRFID token)
             let mutable waiting = true
             while waiting do
                 do! Task.Delay(TimeSpan.FromSeconds 0.5)
@@ -376,12 +427,12 @@ let rfidLoop (model:Model) = task {
                     let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
                     if newToken <> token then
                         log.InfoFormat("RFID/NFC {0} was removed from reader", token)
+                        dispatch RFIDRemoved
                         waiting <- false
-
-            let! _ = stop ()
-            ()
 }
+
+let app = Program(log,init,update)
 
 let model = init()
 
-rfidLoop(model).Wait()
+(rfidLoop app.Dispatch model).Wait()

@@ -112,7 +112,7 @@ let killMusikPlayer() = task {
                 killP.StartInfo <- startInfo
                 let _ = killP.Start()
 
-                while not killP.HasExited do
+                while not p.HasExited do
                     do! Task.Delay 10
                 log.Info "stopped"
             with _ -> log.Warn "couldn't kill omxplayer"

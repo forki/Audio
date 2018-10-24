@@ -93,7 +93,7 @@ let killMusikPlayer() = task {
     for p in getMusikPlayerProcesses() do
         if not p.HasExited then
             try
-                log.InfoFormat "stopping omxplaxer"
+                log.Info "stopping omxplaxer"
                 let killP = new System.Diagnostics.Process()
                 let startInfo = System.Diagnostics.ProcessStartInfo()
                 startInfo.FileName <- "sudo"
@@ -103,8 +103,8 @@ let killMusikPlayer() = task {
 
                 while not killP.HasExited do
                     do! Task.Delay 10
-                log.InfoFormat "stopped"
-            with _ -> log.WarnFormat "couldn't kill omxplayer"
+                log.Info "stopped"
+            with _ -> log.Warn "couldn't kill omxplayer"
 }
 
 
@@ -149,7 +149,7 @@ let checkFirmware (model:Model) = task {
                 let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".zip")
                 log.InfoFormat("Starting download of {0}", firmware.Url)
                 do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
-                log.InfoFormat "Download done."
+                log.Info "Download done."
 
                 if System.IO.Directory.Exists firmwareTarget then
                     System.IO.Directory.Delete(firmwareTarget,true)
@@ -158,7 +158,7 @@ let checkFirmware (model:Model) = task {
                 System.IO.File.Delete localFileName
                 runFirmwareUpdate()
                 while true do
-                    log.InfoFormat "Running firmware update."
+                    log.Info "Running firmware update."
                     do! Task.Delay 3000
                     ()
             else
@@ -221,7 +221,7 @@ let update (model:Model) (msg:Msg) =
 
         match tag.Action with
         | TagAction.UnknownTag ->
-            log.WarnFormat "Unknown Tag"
+            log.Warn "Unknown Tag"
             model, []
         | TagAction.StopMusik ->
             model, Cmd.ofTask killMusikPlayer () MusicStopped Err
@@ -235,12 +235,12 @@ let update (model:Model) (msg:Msg) =
         | TagAction.PlayYoutube youtubeURL ->
             model, Cmd.batch [Cmd.ofTask killMusikPlayer () MusicStopped Err; Cmd.ofMsg (PlayYoutube youtubeURL)]
         | TagAction.PlayBlobMusik _ ->
-            log.ErrorFormat("Blobs links need to be converted to direct links by the tag server")
+            log.Error "Blobs links need to be converted to direct links by the tag server"
             model, Cmd.none
 
     | Play playList ->
         let model = { model with PlayList = Some playList }
-        log.InfoFormat( "Playing new PlayList: {0}: Files: {1}", playList.Uri, playList.MediaFiles.Length)
+        log.InfoFormat("Playing new PlayList: {0}: Files: {1}", playList.Uri, playList.MediaFiles.Length)
         model, Cmd.none
 
     | StartMediaPlayer ->
@@ -265,7 +265,7 @@ let update (model:Model) (msg:Msg) =
                     p.Start() |> ignore
                 model, Cmd.none
         | None ->
-            log.ErrorFormat("No playlist set")
+            log.Error "No playlist set"
             model, Cmd.none
 
     | Started p ->
@@ -280,7 +280,7 @@ let update (model:Model) (msg:Msg) =
             else
                 { model with PlayList = Some playList }, Cmd.ofMsg StartMediaPlayer
         | None ->
-            log.ErrorFormat("No playlist set")
+            log.Error "No playlist set"
             model, Cmd.none
 
     | PreviousMediaFile ->
@@ -289,7 +289,7 @@ let update (model:Model) (msg:Msg) =
             let playList = { playList with Position = max 0 (playList.Position - 1) }
             { model with PlayList = Some playList }, Cmd.ofMsg StartMediaPlayer
         | None ->
-            log.ErrorFormat("No playlist set")
+            log.Error "No playlist set"
             model, Cmd.none
 
     | PlayYoutube youtubeURL ->
@@ -319,18 +319,18 @@ let update (model:Model) (msg:Msg) =
             model, Cmd.none
 
     | MusicStopped _ ->
-        log.InfoFormat "Music stopped"
+        log.Info "Music stopped"
         model, Cmd.none
 
     | CheckFirmware ->
          model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
 
     | FirmwareUpToDate _ ->
-         log.InfoFormat( "Firmware {0} is uptodate.", ReleaseNotes.Version)
+         log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)
          model, Cmd.none
 
     | Err exn ->
-        log.ErrorFormat( "Error: {0}", exn.Message)
+        log.ErrorFormat("Error: {0}", exn.Message)
         model, Cmd.none
 
 

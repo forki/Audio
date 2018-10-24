@@ -33,10 +33,10 @@ type Program<'Model,'Msg>(log:log4net.ILog, init: unit -> 'Model * Cmd<'Msg>, up
     let agent = MailboxProcessor.Start (fun inbox ->
         let rec messageLoop (model:'Model) = async {
             let! msg = inbox.Receive()
-            log.InfoFormat (sprintf "Msg: %A" msg)
+            log.Info (sprintf "Msg: %A" msg)
             try
                 let newModel,newCmds = update model msg
-                log.InfoFormat (sprintf "Model: %A" newModel)
+                log.Info (sprintf "Model: %A" newModel)
                 for cmd in newCmds do
                     cmd inbox.Post
                 return! messageLoop newModel
@@ -48,7 +48,7 @@ type Program<'Model,'Msg>(log:log4net.ILog, init: unit -> 'Model * Cmd<'Msg>, up
 
         try
             let (initialModel:'Model,newCmds) = init()
-            log.InfoFormat (sprintf "Initial model: %A" initialModel)
+            log.Info (sprintf "Initial model: %A" initialModel)
             for cmd in newCmds do
                 cmd inbox.Post
             messageLoop initialModel

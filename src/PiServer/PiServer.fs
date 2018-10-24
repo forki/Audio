@@ -70,6 +70,8 @@ type Msg =
 | FinishPlaylist
 | Noop of unit
 | DiscoverYoutube of string * bool
+| GetAllYoutubeTags
+| DiscoverAllYoutubeLinks of string []
 | NewYoutubeMediaFiles of string * string [] * bool
 | Err of exn
 
@@ -217,6 +219,22 @@ let getStartupActions (model:Model) = task {
     | Ok actions -> return actions
 }
 
+let getAllYoutubeTags (model:Model) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
+    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+
+    match Decode.fromString TagList.Decoder result with
+    | Error msg -> return failwith msg
+    | Ok list ->
+        return
+            list.Tags
+            |> Array.choose (fun tag ->
+                match tag.Action with
+                | TagAction.PlayYoutube youtubeURL -> Some youtubeURL
+                | _ -> None)
+}
+
 let update (model:Model) (msg:Msg) =
     match msg with
     | VolumeUp ->
@@ -311,6 +329,12 @@ let update (model:Model) (msg:Msg) =
     | DiscoverYoutube (youtubeURL,playAfterwards) ->
         model, Cmd.ofTask discoverYoutubeLink youtubeURL (fun files -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
 
+    | GetAllYoutubeTags ->
+        model, Cmd.ofTask getAllYoutubeTags model DiscoverAllYoutubeLinks Err
+
+    | DiscoverAllYoutubeLinks files ->
+        model, Cmd.batch [for file in files -> Cmd.ofMsg (DiscoverYoutube (file,false))]
+
     | NewYoutubeMediaFiles (youtubeURL,files,playAfterwards) ->
         let model = { model with YoutubeLinks = model.YoutubeLinks |> Map.add youtubeURL files }
         if playAfterwards then
@@ -326,7 +350,11 @@ let update (model:Model) (msg:Msg) =
 
     | FirmwareUpToDate _ ->
         log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)
-        model, Cmd.ofTask getStartupActions model ExecuteActions Err
+        model,
+            Cmd.batch [
+                Cmd.ofTask getStartupActions model ExecuteActions Err
+                Cmd.ofMsg GetAllYoutubeTags
+            ]
 
     | ExecuteActions actions ->
         match actions with
@@ -356,27 +384,7 @@ let update (model:Model) (msg:Msg) =
         model, Cmd.none
 
 
-// let discoverAllYoutubeLinks (model:Model) = task {
-//     while true do
-//         try
-//             use webClient = new System.Net.WebClient()
-//             let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
-//             let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
-//             match Decode.fromString TagList.Decoder result with
-//             | Error msg -> return failwith msg
-//             | Ok list ->
-//                 for tag in list.Tags do
-//                     match tag.Action with
-//                     | TagAction.PlayYoutube youtubeURL ->
-//                         let! vlinks = discoverYoutubeLink youtubeURL
-//                         youtubeLinks.AddOrUpdate(youtubeURL,vlinks,Func<_,_,_>(fun _ _ -> vlinks)) |> ignore
-//                     | _ -> ()
-//         with
-//         | exn ->
-//             log.ErrorFormat("Youtube discovering error: {0}", exn.Message)
-//         do! Task.Delay(TimeSpan.FromMinutes 60.)
-// }
 
 let webApp = router {
     get "/version" (fun next ctx -> task {
@@ -401,9 +409,6 @@ let rfidLoop dispatch = task {
     app.Start()
 
     log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
-
-    // do! executeStartupActions model
-    // do! discoverAllYoutubeLinks model
 
     let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
 

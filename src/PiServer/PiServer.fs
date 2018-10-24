@@ -68,6 +68,7 @@ type Msg =
 | StartMediaPlayer
 | Started of Process
 | FinishPlaylist
+| Noop of unit
 | DiscoverYoutube of string * bool
 | NewYoutubeMediaFiles of string * string [] * bool
 | Err of exn
@@ -286,10 +287,10 @@ let update (model:Model) (msg:Msg) =
             { model with MediaPlayerProcess = None }, Cmd.none
 
     | NextMediaFile ->
-        { model with NextPlayListAction = PlayListAction.Next }, Cmd.ofTask killMusikPlayer () PlayerStopped Err
+        { model with NextPlayListAction = PlayListAction.Next }, Cmd.ofTask killMusikPlayer () Noop Err
 
     | PreviousMediaFile ->
-        { model with NextPlayListAction = PlayListAction.Previous }, Cmd.ofTask killMusikPlayer () PlayerStopped Err
+        { model with NextPlayListAction = PlayListAction.Previous }, Cmd.ofTask killMusikPlayer () Noop Err
 
     | PlayYoutube youtubeURL ->
         match model.YoutubeLinks.TryGetValue youtubeURL with

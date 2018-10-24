@@ -70,8 +70,6 @@ type Msg =
 | FinishPlaylist
 | Noop of unit
 | DiscoverYoutube of string * bool
-| GetAllYoutubeTags
-| DiscoveredAllYoutubeLinks of (string * string []) []
 | NewYoutubeMediaFiles of string * string [] * bool
 | Err of exn
 
@@ -218,32 +216,40 @@ let getStartupActions (model:Model) = task {
     | Ok actions -> return actions
 }
 
-let discoverAllYoutubeLinks (model:Model) = task {
-    use webClient = new System.Net.WebClient()
-    let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
-    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+let volumeScript = "./volume.sh"
 
-    match Decode.fromString TagList.Decoder result with
-    | Error msg -> return failwith msg
-    | Ok list ->
-        return!
-            list.Tags
-            |> Array.choose (fun tag ->
-                match tag.Action with
-                | TagAction.PlayYoutube youtubeURL -> Some(discoverYoutubeLink youtubeURL)
-                | _ -> None)
-            |> Task.WhenAll
-}
+let setVolumeScript volume =
+    let txt = sprintf """export DBUS_SESSION_BUS_ADDRESS=$(cat /tmp/omxplayerdbus.root)
+dbus-send --print-reply --session --reply-timeout=500 \
+           --dest=org.mpris.MediaPlayer2.omxplayer \
+           /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Set \
+           string:"org.mpris.MediaPlayer2.Player" \
+           string:"Volume" double:%.2f""" volume
+
+    if File.Exists volumeScript then
+        File.Delete(volumeScript)
+    File.WriteAllText(volumeScript,txt.Replace("\r\n","\n").Replace("\r","\n"))
+    let p = new Process()
+    let startInfo = new ProcessStartInfo()
+    startInfo.WorkingDirectory <- "./"
+    startInfo.FileName <- "sudo"
+    startInfo.Arguments <- "sh volume.sh"
+    startInfo.RedirectStandardOutput <- true
+    startInfo.UseShellExecute <- false
+    startInfo.CreateNoWindow <- true
+    p.StartInfo <- startInfo
+    p.Start() |> ignore
+
 
 let update (model:Model) (msg:Msg) =
     match msg with
     | VolumeUp ->
-        match model.MediaPlayerProcess with Some p -> p.StandardInput.Write("+"); p.StandardInput.Flush() | _ -> ()
-        { model with Volume = model.Volume + 0.1 }, Cmd.none
+        let vol = model.Volume + 0.1
+        { model with Volume = vol }, Cmd.ofFunc setVolumeScript vol Noop Err
 
     | VolumeDown ->
-        match model.MediaPlayerProcess with Some p -> p.StandardInput.Write("-"); p.StandardInput.Flush() | _ -> ()
-        { model with Volume = model.Volume - 0.1 }, Cmd.none
+        let vol = model.Volume - 0.1
+        { model with Volume = vol }, Cmd.ofFunc setVolumeScript vol Noop Err
 
     | NewRFID rfid ->
         { model with RFID = Some rfid }, Cmd.ofTask resolveRFID (model,rfid) NewTag Err
@@ -275,7 +281,6 @@ let update (model:Model) (msg:Msg) =
                     let startInfo = System.Diagnostics.ProcessStartInfo()
                     startInfo.FileName <- "omxplayer"
                     startInfo.Arguments <- playList.MediaFiles.[playList.Position]
-                    startInfo.RedirectStandardInput <- true
                     p.StartInfo <- startInfo
 
                     p.Start() |> ignore
@@ -330,12 +335,6 @@ let update (model:Model) (msg:Msg) =
     | DiscoverYoutube (youtubeURL,playAfterwards) ->
         model, Cmd.ofTask discoverYoutubeLink youtubeURL (fun (youtubeURL,files) -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
 
-    | GetAllYoutubeTags ->
-        model, Cmd.ofTask discoverAllYoutubeLinks model DiscoveredAllYoutubeLinks Err
-
-    | DiscoveredAllYoutubeLinks allFiles ->
-        model, Cmd.batch [for (youtubeURL,files) in allFiles -> Cmd.ofMsg (NewYoutubeMediaFiles (youtubeURL,files,false))]
-
     | NewYoutubeMediaFiles (youtubeURL,files,playAfterwards) ->
         let model = { model with YoutubeLinks = model.YoutubeLinks |> Map.add youtubeURL files }
         if playAfterwards then
@@ -354,7 +353,7 @@ let update (model:Model) (msg:Msg) =
         model,
             Cmd.batch [
                 Cmd.ofTask getStartupActions model ExecuteActions Err
-                Cmd.ofMsg GetAllYoutubeTags
+                // Cmd.ofMsg GetAllYoutubeTags // TODO:
             ]
 
     | ExecuteActions actions ->

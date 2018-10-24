@@ -270,12 +270,18 @@ let update (model:Model) (msg:Msg) =
     | PlayerStopped _ ->
         match model.PlayList with
         | Some playList ->
-            { model with
-                PlayList =
-                    match model.NextPlayListAction with
-                    | PlayListAction.Next -> Some { playList with Position = playList.Position + 1 }
-                    | PlayListAction.Previous -> Some { playList with Position = max 0 (playList.Position - 1) }
-                MediaPlayerProcess = None }, Cmd.ofMsg StartMediaPlayer
+            let model = { model with MediaPlayerProcess = None }
+
+            let newPlayList =
+                match model.NextPlayListAction with
+                | PlayListAction.Next -> { playList with Position = playList.Position + 1 }
+                | PlayListAction.Previous -> { playList with Position = max 0 (playList.Position - 1) }
+
+            if newPlayList.Position >= newPlayList.MediaFiles.Length then
+                model, Cmd.ofMsg FinishPlaylist
+            else
+                { model with PlayList = Some newPlayList }, Cmd.ofMsg StartMediaPlayer
+
         | _ ->
             { model with MediaPlayerProcess = None }, Cmd.none
 

@@ -321,6 +321,9 @@ let update (model:Model) (msg:Msg) =
     | CheckFirmware ->
         model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
 
+    | Noop _ ->
+        model, Cmd.none
+
     | FirmwareUpToDate _ ->
         log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)
         model, Cmd.ofTask getStartupActions model ExecuteActions Err
@@ -352,25 +355,6 @@ let update (model:Model) (msg:Msg) =
         log.ErrorFormat("Error: {0}", exn.Message)
         model, Cmd.none
 
-
-
-// let executeStartupActions (model:Model) = task {
-//     try
-//         use webClient = new System.Net.WebClient()
-//         let url = sprintf @"%s/api/startup" model.TagServer
-//         let! result = webClient.DownloadStringTaskAsync(System.Uri url)
-
-//         match Decode.fromString (Decode.list TagAction.Decoder) result with
-//         | Error msg -> return failwith msg
-//         | Ok actions ->
-//             log.InfoFormat("Actions: {0}", sprintf "%A" actions)
-//             for t in actions do
-//                 let! _ = executeAction t
-//                 ()
-//     with
-//     | exn ->
-//         log.ErrorFormat("Startup error: {0}", exn.Message)
-// }
 
 // let discoverAllYoutubeLinks (model:Model) = task {
 //     while true do

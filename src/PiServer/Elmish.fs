@@ -42,7 +42,7 @@ type Program<'Model,'Msg>(log:log4net.ILog, init: unit -> 'Model, update: 'Model
                 return! messageLoop newModel
             with
             | exn ->
-                log.ErrorFormat("Error during update: %s", exn.Message)
+                log.ErrorFormat("Error during update: {0}", exn.Message)
                 return! messageLoop model
         }
 
@@ -52,7 +52,7 @@ type Program<'Model,'Msg>(log:log4net.ILog, init: unit -> 'Model, update: 'Model
             messageLoop initialModel
         with
         | exn ->
-            log.ErrorFormat("Error during init: %s", exn.Message)
+            log.ErrorFormat("Error during init: {0}", exn.Message)
             reraise()
     )
 

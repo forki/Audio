@@ -204,7 +204,7 @@ let discoverYoutubeLink (youtubeURL:string) = task {
         lines
         |> Array.filter (fun x -> x.Contains "&mime=audio")
 
-    log.InfoFormat("{0} Youtube audio links detected: {0}", links.Length)
+    log.InfoFormat("{0} Youtube audio links detected", links.Length)
     return links
 }
 
@@ -237,11 +237,11 @@ let getAllYoutubeTags (model:Model) = task {
 let update (model:Model) (msg:Msg) =
     match msg with
     | VolumeUp ->
-        // //log.InfoFormat "Volume up button pressed"; if not (isNull currentAudioProcess) then currentAudioProcess.StandardInput.Write("+") |> ignore)
+        match model.MediaPlayerProcess with Some p -> p.StandardInput.Write("+") | _ -> ()
         { model with Volume = model.Volume + 0.1 }, Cmd.none
 
     | VolumeDown ->
-         // log.InfoFormat "Volume down button pressed"; if not (isNull currentAudioProcess) then currentAudioProcess.StandardInput.Write("-") |> ignore)
+        match model.MediaPlayerProcess with Some p -> p.StandardInput.Write("-") | _ -> ()
         { model with Volume = model.Volume - 0.1 }, Cmd.none
 
     | NewRFID rfid ->
@@ -413,8 +413,8 @@ let rfidLoop dispatch = task {
 
     use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> dispatch NextMediaFile)
     use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> dispatch PreviousMediaFile)
-    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> dispatch VolumeDown)
-    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> dispatch VolumeUp)
+    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> dispatch VolumeDown)
+    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> dispatch VolumeUp)
 
 
     while true do

@@ -34,6 +34,11 @@ type PlayList = {
     Position : int
 }
 
+[<RequireQualifiedAccess>]
+type PlayListAction =
+| Next
+| Previous
+
 type Model = {
     PlayList : PlayList option
     FirmwareUpdateInterval : TimeSpan
@@ -43,6 +48,7 @@ type Model = {
     RFID : string option
     YoutubeLinks : Map<string,string[]>
     MediaPlayerProcess : Process option
+    NextPlayListAction : PlayListAction
 }
 
 type Msg =
@@ -74,6 +80,7 @@ let init () : Model * Cmd<Msg> =
       Volume = 0.5 // TODO: load from webserver
       RFID = None
       YoutubeLinks = Map.empty
+      NextPlayListAction = PlayListAction.Next
       MediaPlayerProcess = None }, Cmd.ofMsg CheckFirmware
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
@@ -220,15 +227,12 @@ let update (model:Model) (msg:Msg) =
         { model with Volume = model.Volume - 0.1 }, Cmd.none
 
     | NewRFID rfid ->
-        log.InfoFormat("RFID/NFC: {0}", rfid)
         { model with RFID = Some rfid }, Cmd.ofTask resolveRFID (model,rfid) NewTag Err
 
     | RFIDRemoved ->
         { model with RFID = None }, Cmd.ofMsg FinishPlaylist
 
     | NewTag tag ->
-        log.InfoFormat( "Object: {0}", tag.Object)
-        log.InfoFormat( "Description: {0}", tag.Description)
         model, Cmd.ofMsg (ExecuteActions [tag.Action])
 
     | Play playList ->
@@ -244,7 +248,6 @@ let update (model:Model) (msg:Msg) =
                 model, Cmd.ofMsg FinishPlaylist
             else
                 let start dispatch =
-                    killMusikPlayer() |> Async.AwaitTask |> Async.RunSynchronously
                     log.InfoFormat( "Playing audio file {0} / {1}", playList.Position + 1, playList.MediaFiles.Length)
                     let p = new System.Diagnostics.Process()
                     p.EnableRaisingEvents <- true
@@ -268,22 +271,19 @@ let update (model:Model) (msg:Msg) =
         match model.PlayList with
         | Some playList ->
             { model with
-                PlayList = Some { playList with Position = playList.Position + 1 }
+                PlayList =
+                    match model.NextPlayListAction with
+                    | PlayListAction.Next -> Some { playList with Position = playList.Position + 1 }
+                    | PlayListAction.Previous -> Some { playList with Position = max 0 (playList.Position - 1) }
                 MediaPlayerProcess = None }, Cmd.ofMsg StartMediaPlayer
         | _ ->
             { model with MediaPlayerProcess = None }, Cmd.none
 
     | NextMediaFile ->
-        model, Cmd.ofTask killMusikPlayer () PlayerStopped Err
+        { model with NextPlayListAction = PlayListAction.Next }, Cmd.ofTask killMusikPlayer () PlayerStopped Err
 
     | PreviousMediaFile ->
-        match model.PlayList with
-        | Some playList ->
-            let playList = { playList with Position = max -1 (playList.Position - 2) }
-            { model with PlayList = Some playList }, Cmd.ofTask killMusikPlayer () PlayerStopped Err
-        | None ->
-            log.Error "No playlist set"
-            model, Cmd.none
+        { model with NextPlayListAction = PlayListAction.Previous }, Cmd.ofTask killMusikPlayer () PlayerStopped Err
 
     | PlayYoutube youtubeURL ->
         match model.YoutubeLinks.TryGetValue youtubeURL with

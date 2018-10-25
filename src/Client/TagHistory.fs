@@ -62,7 +62,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             model, Cmd.none
         else
             let ws =
-                let url = sprintf "api/taghistorysocket/%s" model.UserID
+                let url = sprintf "%s/api/taghistorysocket/%s" URLs.websocketURL model.UserID
                 // match model.User with
                 // | Some user ->
                 //     Elmish.WebSocket.createAuthenticated(url,user.Token)

@@ -117,3 +117,11 @@ module URLs =
 #endif
 
     let mp3Server = sprintf "%s/api/audio/mp3" mediaServer
+
+
+    let websocketURL =
+#if DEBUG
+        "ws://localhost:8087"
+#else
+        "wss:/audio-hub.azurewebsites.net"
+#endif

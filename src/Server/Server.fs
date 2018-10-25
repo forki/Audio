@@ -154,7 +154,7 @@ let webApp =
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
         get "/api/latestfirmware" getLatestFirmware
-        getf "/taghistorysocket/%s" (TagHistorySocket.openSocket tagHistoryBroadcaster)
+        getf "api/taghistorysocket/%s" (TagHistorySocket.openSocket tagHistoryBroadcaster)
     }
 
 let configureSerialization (services:IServiceCollection) =

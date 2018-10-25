@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "0.14.0"
+let Version = "0.14.1"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 0.14.0- 2018-10-24
+## 0.14.1 - 2018-10-25
 * TagHistory websocket
 
 ## 0.13.22 - 2018-10-24

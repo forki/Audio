@@ -11,7 +11,8 @@ open System
 open System.Threading
 open System.Threading.Tasks
 open Giraffe.WebSocket
-
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Hosting
 
 #if DEBUG
 let publicPath = Path.GetFullPath "../Client/public"
@@ -169,4 +170,9 @@ let app = application {
     use_gzip
 }
 
-run app
+let configureApp (app : IApplicationBuilder) =
+    app.UseWebSockets(Giraffe.WebSocket.DefaultWebSocketOptions)
+    |> ignore
+
+let app' = app.Configure(Action<IApplicationBuilder> configureApp) 
+run app'

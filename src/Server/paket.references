@@ -4,3 +4,5 @@ group Server
     Thoth.Json.Net
     Thoth.Json
     WindowsAzure.Storage
+    Microsoft.AspNetCore.WebSockets
+    Microsoft.AspNetCore.WebSockets.Server

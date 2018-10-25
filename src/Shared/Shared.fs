@@ -103,6 +103,10 @@ type TagList =
             { Tags = get.Required.Field "Tags" (Decode.array Tag.Decoder) }
         )
 
+[<RequireQualifiedAccess>]
+type TagHistorySocketEvent =
+| ToDo
+
 module URLs =
     let serverPort = 8085us
 

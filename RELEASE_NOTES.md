@@ -1,5 +1,8 @@
 # Release Notes
 
+## 0.14.0- 2018-10-24
+* TagHistory websocket
+
 ## 0.13.22 - 2018-10-24
 * Volume buttons
 

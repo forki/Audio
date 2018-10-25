@@ -8,6 +8,8 @@ group Server
     nuget Thoth.Json.Net
     nuget Thoth.Json
     nuget WindowsAzure.Storage
+    nuget Microsoft.AspNetCore.WebSockets
+    nuget Microsoft.AspNetCore.WebSockets.Server
 
 group Client
     storage: none

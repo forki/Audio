@@ -9,6 +9,8 @@ open ServerCode.Storage
 open Microsoft.WindowsAzure.Storage.Blob
 open System
 open System.Threading
+open System.Threading.Tasks
+open Giraffe.WebSocket
 
 
 #if DEBUG
@@ -134,6 +136,16 @@ let firmwareEndpoint =
         })
     }
 
+
+let tagHistoryBroadcaster = ConnectionManager()
+
+let t = task {
+    while true do
+        let body = Encode.Auto.toString(0, TagHistorySocketEvent.ToDo)
+        do! tagHistoryBroadcaster.BroadcastTextAsync(body,key = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f")
+        do! Task.Delay 10000
+}
+
 let webApp =
     router {
         getf "/api/tags/%s/%s" tagEndpoint
@@ -142,6 +154,7 @@ let webApp =
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
         get "/api/latestfirmware" getLatestFirmware
+        getf "/taghistorysocket/%s" (TagHistorySocket.openSocket tagHistoryBroadcaster)
     }
 
 let configureSerialization (services:IServiceCollection) =

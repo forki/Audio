@@ -11,8 +11,6 @@ open Thoth.Json.Net
 #endif
 
 open System
-open Fable.Helpers.React
-open Fable.Helpers.React.Props
 open Fable.PowerPack.Fetch
 open Fulma
 open Fulma.FontAwesome
@@ -26,9 +24,12 @@ type Model = {
     Firmware: Firmware option
     ShownTags : Tag []
     FilterText : string
+    TagHistory : TagHistory.Model
+    UserID : string
 }
 
 type Msg =
+| TagHistoryMsg of TagHistory.Msg
 | FetchTags
 | FileNameChanged of obj
 | FilterChanged of string
@@ -40,17 +41,9 @@ type Msg =
 | FirmwareLoaded of Result<Firmware, exn>
 | Err of exn
 
-let runIn (timeSpan:System.TimeSpan) successMsg errorMsg =
-    let p() = promise {
-        do! Promise.sleep (int timeSpan.TotalMilliseconds)
-        return ()
-    }
-    Cmd.ofPromise p () (fun _ -> successMsg) errorMsg
 
 
-let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f"
-
-let fetchData() = promise {
+let fetchData (userID) = promise {
     let! res = Fetch.fetch (sprintf "api/usertags/%s" userID) []
     let! txt = res.text()
 
@@ -90,9 +83,12 @@ let uploadFile (fileName,token) = promise {
 }
 
 let fetchFirmwareCmd = Cmd.ofPromise fetchFirmware () (Ok >> FirmwareLoaded) (Error >> FirmwareLoaded)
-let fetchTagsCmd = Cmd.ofPromise fetchData () (Ok >> TagsLoaded) (Error >> TagsLoaded)
+let fetchTagsCmd userID = Cmd.ofPromise fetchData userID (Ok >> TagsLoaded) (Error >> TagsLoaded)
 
 let init () : Model * Cmd<Msg> =
+    let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO:
+    let hsitoryModel,historyCmd = TagHistory.init userID
+
     let initialModel = {
         Tags = None
         Firmware = None
@@ -101,10 +97,13 @@ let init () : Model * Cmd<Msg> =
         FilterText = ""
         Message = ""
         ShownTags = [||]
+        UserID = userID
+        TagHistory = hsitoryModel
     }
 
     initialModel,
         Cmd.batch [
+            Cmd.map TagHistoryMsg historyCmd
             Cmd.ofMsg FetchTags
             fetchFirmwareCmd
         ]
@@ -112,9 +111,12 @@ let init () : Model * Cmd<Msg> =
 
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
+    | TagHistoryMsg msg ->
+        let m,cmd = TagHistory.update msg model.TagHistory
+        { model with TagHistory = m}, Cmd.map TagHistoryMsg cmd
 
     | FetchTags ->
-        model, fetchTagsCmd
+        model, fetchTagsCmd model.UserID
 
     | FilterChanged txt ->
         { model with FilterText = txt }, Cmd.ofMsg RefreshList
@@ -158,7 +160,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match model.File with
         | None -> model, Cmd.none
         | Some fileName ->
-            { model with File = None; IsUploading = true; Message = "Upload started" }, 
+            { model with File = None; IsUploading = true; Message = "Upload started" },
                 Cmd.ofPromise uploadFile (fileName,"temp") FileUploaded UploadFailed
 
     | Err exn ->
@@ -169,7 +171,6 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Fable.Core.JsInterop
-
 
 
 let audioHubComponents =
@@ -283,7 +284,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                           tagsTable model dispatch ]
                       Column.column
                         [ Column.Width (Screen.All, Column.Is5) ]
-                        [ 
+                        [
                           div [] [
                             input [
                                 Type "file"

@@ -418,6 +418,9 @@ let rfidLoop dispatch = task {
     use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> dispatch VolumeDown)
     use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> dispatch VolumeUp)
 
+    use _startButton = 
+        new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin23, 
+            fun () -> dispatch (NewRFID "8804be1123"))
 
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")

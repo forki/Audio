@@ -83,6 +83,7 @@ network={
 * Put the SD-Card into the Raspberry Pi
 * Connect the Raspberry Pi with the USB-Charger
 * Try to find out the [IP of your device](https://www.raspberrypi.org/documentation/remote-access/ip-address.md)
+    * If you have multiple Raspberry Pi in the network and want to check if you are SSHing into the right one, you can change the color of the built-in LEDs and see on which Pi it happens: [https://www.jeffgeerling.com/blogs/jeff-geerling/controlling-pwr-act-leds-raspberry-pi](https://www.jeffgeerling.com/blogs/jeff-geerling/controlling-pwr-act-leds-raspberry-pi) 
 * Connect to the Raspberry Pi via SSH (you can use [putty](https://www.putty.org/) on Windows)
 * Username: "pi", Password: "raspberry"
 * Change the default password with the command `passwd`
@@ -99,7 +100,7 @@ network={
 
 ### Checking logs
 
-tailf PiServer/publish/logs/clientlog.log
+`tailf PiServer/publish/logs/clientlog.log`
 
 ### Testing self-built Firmware
 

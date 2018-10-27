@@ -387,7 +387,6 @@ let update (model:Model) (msg:Msg) =
 
 
 
-
 let webApp = router {
     get "/version" (fun next ctx -> task {
         return! text ReleaseNotes.Version next ctx
@@ -424,11 +423,8 @@ let rfidLoop dispatch = task {
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
 
         if String.IsNullOrEmpty token then
-            if nextFirmwareCheck < DateTimeOffset.UtcNow then
-                dispatch CheckFirmware
-            else
-                let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
-                ()
+            let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
+            ()
         else
             dispatch (NewRFID token)
             let mutable waiting = true

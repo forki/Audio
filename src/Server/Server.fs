@@ -161,6 +161,11 @@ let webApp =
 let configureSerialization (services:IServiceCollection) =
     services
 
+
+
+let configureApp (app : IApplicationBuilder) =
+    app.UseWebSockets(Giraffe.WebSocket.DefaultWebSocketOptions)
+
 let app = application {
     url ("http://0.0.0.0:" + URLs.serverPort.ToString() + "/")
     use_router webApp
@@ -168,11 +173,7 @@ let app = application {
     use_static publicPath
     service_config configureSerialization
     use_gzip
+    app_config configureApp
 }
 
-let configureApp (app : IApplicationBuilder) =
-    app.UseWebSockets(Giraffe.WebSocket.DefaultWebSocketOptions)
-    |> ignore
-
-let app' = app.Configure(Action<IApplicationBuilder> configureApp) 
-run app'
+run app

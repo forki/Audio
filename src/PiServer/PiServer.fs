@@ -15,8 +15,8 @@ open GeneralIO
 open Elmish
 
 
-
 let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
+
 
 let log =
     let log4netConfig = XmlDocument()
@@ -396,7 +396,7 @@ let webApp = router {
 let configureSerialization (services:IServiceCollection) =
     services.AddNodeServices(fun x -> x.InvocationTimeoutMilliseconds <- 2 * 60 * 60 * 1000)
     services
-
+ 
 let builder = application {
     url "http://0.0.0.0:8086/"
     use_router webApp

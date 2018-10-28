@@ -250,9 +250,9 @@ let getStartupActions (model:Model) = task {
     | Ok actions -> return actions
 }
 
-let volumeScript = "./volume.sh"
 
 let setVolumeScript volume =
+    let volumeScript = "./volume.sh"
     let txt = sprintf """export DBUS_SESSION_BUS_ADDRESS=$(cat /tmp/omxplayerdbus.root)
 dbus-send --print-reply --session --reply-timeout=500 \
            --dest=org.mpris.MediaPlayer2.omxplayer \

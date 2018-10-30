@@ -14,9 +14,9 @@ open System.Reflection
 open GeneralIO
 open Elmish
 
-
 let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
 
+let ofTask t p m1 m2 = Cmd.ofAsync (t >> Async.AwaitTask) p m1 m2
 
 let log =
     let log4netConfig = XmlDocument()
@@ -49,6 +49,7 @@ type Model = {
     YoutubeLinks : Map<string,string[]>
     MediaPlayerProcess : Process option
     NextPlayListAction : PlayListAction
+    NodeServices : INodeServices
 }
 
 type Msg =
@@ -73,7 +74,39 @@ type Msg =
 | NewYoutubeMediaFiles of string * string [] * bool
 | Err of exn
 
-let init () : Model * Cmd<Msg> =
+
+
+let rfidLoop (dispatch,nodeServices:INodeServices) = task {
+    use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> dispatch NextMediaFile)
+    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> dispatch PreviousMediaFile)
+    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> dispatch VolumeDown)
+    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> dispatch VolumeUp)
+
+    while true do
+        let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
+
+        if String.IsNullOrEmpty token then
+            let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
+            ()
+        else
+            dispatch (NewRFID token)
+            let mutable waiting = true
+            while waiting do
+                do! Task.Delay(TimeSpan.FromSeconds 0.5)
+
+                let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
+                if newToken <> token then
+                    // recheck in 2 seconds to make it a bit more stable
+                    let! _ = Task.Delay(TimeSpan.FromSeconds 2.)
+                    let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
+                    if newToken <> token then
+                        log.InfoFormat("RFID/NFC {0} was removed from reader", token)
+                        dispatch RFIDRemoved
+                        waiting <- false
+}
+
+
+let init nodeServices : Model * Cmd<Msg> =
     { PlayList = None
       FirmwareUpdateInterval = TimeSpan.FromHours 1.
       UserID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
@@ -82,6 +115,7 @@ let init () : Model * Cmd<Msg> =
       RFID = None
       YoutubeLinks = Map.empty
       NextPlayListAction = PlayListAction.Next
+      NodeServices = nodeServices
       MediaPlayerProcess = None }, Cmd.ofMsg CheckFirmware
 
 let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
@@ -216,9 +250,9 @@ let getStartupActions (model:Model) = task {
     | Ok actions -> return actions
 }
 
-let volumeScript = "./volume.sh"
 
 let setVolumeScript volume =
+    let volumeScript = "./volume.sh"
     let txt = sprintf """export DBUS_SESSION_BUS_ADDRESS=$(cat /tmp/omxplayerdbus.root)
 dbus-send --print-reply --session --reply-timeout=500 \
            --dest=org.mpris.MediaPlayer2.omxplayer \
@@ -242,7 +276,7 @@ dbus-send --print-reply --session --reply-timeout=500 \
     p.Start() |> ignore
 
 
-let update (model:Model) (msg:Msg) =
+let update (msg:Msg) (model:Model) =
     match msg with
     | VolumeUp ->
         let vol = min 1. (model.Volume + 0.1)
@@ -253,7 +287,7 @@ let update (model:Model) (msg:Msg) =
         { model with Volume = vol }, Cmd.ofFunc setVolumeScript vol Noop Err
 
     | NewRFID rfid ->
-        { model with RFID = Some rfid }, Cmd.ofTask resolveRFID (model,rfid) NewTag Err
+        { model with RFID = Some rfid }, ofTask resolveRFID (model,rfid) NewTag Err
 
     | RFIDRemoved ->
         { model with RFID = None }, Cmd.ofMsg FinishPlaylist
@@ -313,10 +347,10 @@ let update (model:Model) (msg:Msg) =
             { model with MediaPlayerProcess = None }, Cmd.none
 
     | NextMediaFile ->
-        { model with NextPlayListAction = PlayListAction.Next }, Cmd.ofTask killMusikPlayer () Noop Err
+        { model with NextPlayListAction = PlayListAction.Next }, ofTask killMusikPlayer () Noop Err
 
     | PreviousMediaFile ->
-        { model with NextPlayListAction = PlayListAction.Previous }, Cmd.ofTask killMusikPlayer () Noop Err
+        { model with NextPlayListAction = PlayListAction.Previous }, ofTask killMusikPlayer () Noop Err
 
     | PlayYoutube youtubeURL ->
         match model.YoutubeLinks.TryGetValue youtubeURL with
@@ -327,15 +361,15 @@ let update (model:Model) (msg:Msg) =
                 Position = 0
             }
 
-            model, Cmd.batch [Cmd.ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (Play playList)]
+            model, Cmd.batch [ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (Play playList)]
         | _ ->
             model, Cmd.ofMsg (DiscoverYoutube (youtubeURL,true))
 
     | FinishPlaylist ->
-        { model with PlayList = None }, Cmd.ofTask killMusikPlayer () PlayerStopped Err
+        { model with PlayList = None }, ofTask killMusikPlayer () PlayerStopped Err
 
     | DiscoverYoutube (youtubeURL,playAfterwards) ->
-        model, Cmd.ofTask discoverYoutubeLink youtubeURL (fun (youtubeURL,files) -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
+        model, ofTask discoverYoutubeLink youtubeURL (fun (youtubeURL,files) -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
 
     | NewYoutubeMediaFiles (youtubeURL,files,playAfterwards) ->
         let model = { model with YoutubeLinks = model.YoutubeLinks |> Map.add youtubeURL files }
@@ -345,7 +379,7 @@ let update (model:Model) (msg:Msg) =
             model, Cmd.none
 
     | CheckFirmware ->
-        model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
+        model, ofTask checkFirmware model FirmwareUpToDate Err
 
     | Noop _ ->
         model, Cmd.none
@@ -354,8 +388,8 @@ let update (model:Model) (msg:Msg) =
         log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)
         model,
             Cmd.batch [
-                Cmd.ofTask getStartupActions model ExecuteActions Err
-                // Cmd.ofMsg GetAllYoutubeTags // TODO:
+                ofTask getStartupActions model ExecuteActions Err
+                [fun dispatch -> rfidLoop (dispatch,model.NodeServices) |> Async.AwaitTask |> Async.StartImmediate ]
             ]
 
     | ExecuteActions actions ->
@@ -366,16 +400,16 @@ let update (model:Model) (msg:Msg) =
                 log.Warn "Unknown Tag"
                 model, Cmd.ofMsg (ExecuteActions rest)
             | TagAction.StopMusik ->
-                model, Cmd.batch [Cmd.ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (ExecuteActions rest) ]
+                model, Cmd.batch [ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (ExecuteActions rest) ]
             | TagAction.PlayMusik url ->
                 let playList : PlayList = {
                     Uri = url
                     MediaFiles = [| url |]
                     Position = 0
                 }
-                model, Cmd.batch [Cmd.ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]
+                model, Cmd.batch [ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]
             | TagAction.PlayYoutube youtubeURL ->
-                model, Cmd.batch [Cmd.ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (PlayYoutube youtubeURL); Cmd.ofMsg (ExecuteActions rest) ]
+                model, Cmd.batch [ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (PlayYoutube youtubeURL); Cmd.ofMsg (ExecuteActions rest) ]
             | TagAction.PlayBlobMusik _ ->
                 log.Error "Blobs links need to be converted to direct links by the tag server"
                 model, Cmd.ofMsg (ExecuteActions rest)
@@ -405,47 +439,11 @@ let builder = application {
     use_gzip
 }
 
-let rfidLoop dispatch = task {
-    use app = builder.Build()
-    app.Start()
+let aspnetapp = builder.Build()
+aspnetapp.Start()
+log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
+let nodeServices = aspnetapp.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-    log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
+let app = Program.mkProgram init update (fun x dispatch -> ())
 
-    let nodeServices = app.Services.GetService(typeof<INodeServices>) :?> INodeServices
-
-    use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> dispatch NextMediaFile)
-    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> dispatch PreviousMediaFile)
-    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> dispatch VolumeDown)
-    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> dispatch VolumeUp)
-
-    use _startButton = 
-        new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin23, 
-            fun () -> dispatch (NewRFID "8804be1123"))
-
-    while true do
-        let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
-
-        if String.IsNullOrEmpty token then
-            let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
-            ()
-        else
-            dispatch (NewRFID token)
-            let mutable waiting = true
-            while waiting do
-                do! Task.Delay(TimeSpan.FromSeconds 0.5)
-
-                let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
-                if newToken <> token then
-                    // recheck in 2 seconds to make it a bit more stable
-                    let! _ = Task.Delay(TimeSpan.FromSeconds 2.)
-                    let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
-                    if newToken <> token then
-                        log.InfoFormat("RFID/NFC {0} was removed from reader", token)
-                        dispatch RFIDRemoved
-                        waiting <- false
-}
-
-let app = Program(log,init,update)
-
-
-(rfidLoop app.Dispatch).Wait()
+Program.runWith nodeServices app

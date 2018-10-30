@@ -50,4 +50,5 @@ group Pi
     nuget Thoth.Json.Net
     nuget Thoth.Json
     nuget log4net
+    nuget Elmish
     nuget Unosquare.Raspberry.IO

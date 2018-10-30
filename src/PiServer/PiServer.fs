@@ -240,6 +240,29 @@ let discoverYoutubeLink (youtubeURL:string) = task {
     return youtubeURL,links
 }
 
+let discoverAllYoutubeLinks (dispatch,model:Model) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
+    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+
+    match Decode.fromString TagList.Decoder result with
+    | Error msg -> return failwith msg
+    | Ok list ->
+        let! _ =
+            list.Tags
+            |> Array.map (fun tag ->
+                match tag.Action with
+                | TagAction.PlayYoutube youtubeURL ->
+                    task {
+                        let! (youtubeURL,files) = discoverYoutubeLink youtubeURL
+                        dispatch (NewYoutubeMediaFiles (youtubeURL,files,false))
+                    }
+                | _ -> task { return () } )
+            |> Task.WhenAll
+        ()
+}
+
+
 let getStartupActions (model:Model) = task {
     use webClient = new System.Net.WebClient()
     let url = sprintf @"%s/api/startup" model.TagServer
@@ -389,6 +412,7 @@ let update (msg:Msg) (model:Model) =
         model,
             Cmd.batch [
                 ofTask getStartupActions model ExecuteActions Err
+                [fun dispatch -> discoverAllYoutubeLinks (dispatch,model) |> Async.AwaitTask |> Async.StartImmediate ]
                 [fun dispatch -> rfidLoop (dispatch,model.NodeServices) |> Async.AwaitTask |> Async.StartImmediate ]
             ]
 

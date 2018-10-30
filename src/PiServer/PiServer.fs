@@ -430,7 +430,7 @@ let webApp = router {
 let configureSerialization (services:IServiceCollection) =
     services.AddNodeServices(fun x -> x.InvocationTimeoutMilliseconds <- 2 * 60 * 60 * 1000)
     services
- 
+
 let builder = application {
     url "http://0.0.0.0:8086/"
     use_router webApp
@@ -444,6 +444,11 @@ aspnetapp.Start()
 log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
 let nodeServices = aspnetapp.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
-let app = Program.mkProgram init update (fun x dispatch -> ())
+let app =
+    Program.mkProgram init update (fun x dispatch -> ())
+    |> Program.withTrace (fun msg _model -> log.InfoFormat("{0}", msg))
+
 
 Program.runWith nodeServices app
+
+Console.ReadKey() |> ignore

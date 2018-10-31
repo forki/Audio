@@ -93,7 +93,7 @@ network={
 
 * `sudo apt-get update`
 * `sudo apt-get install curl unzip`
-* `curl -sSL -o -v firmware.zip https://audio-hub.azurewebsites.net/api/latestfirmware`
+* `curl -sSL -o firmware.zip https://audio-hub.azurewebsites.net/api/latestfirmware`
 * `unzip firmware.zip -d firmware && rm firmware.zip`
 * `chmod u+x firmware/install.sh`
 * `sudo firmware/install.sh`

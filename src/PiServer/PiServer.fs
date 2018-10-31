@@ -475,4 +475,8 @@ let app =
 
 Program.runWith nodeServices app
 
-Console.ReadKey() |> ignore
+let t = task { while true do do! Task.Delay 10000 }
+
+t |> Async.AwaitTask |> Async.RunSynchronously
+
+log.InfoFormat("PiServer {0} is shutting down.", ReleaseNotes.Version)

@@ -249,25 +249,27 @@ let discoverYoutubeLink (youtubeURL:string) = task {
 }
 
 let discoverAllYoutubeLinks (dispatch,model:Model) = task {
-    use webClient = new System.Net.WebClient()
-    let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
-    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+    while true do
+        use webClient = new System.Net.WebClient()
+        let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
+        let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
-    match Decode.fromString TagList.Decoder result with
-    | Error msg -> return failwith msg
-    | Ok list ->
-        let! _ =
-            list.Tags
-            |> Array.map (fun tag ->
-                match tag.Action with
-                | TagAction.PlayYoutube youtubeURL ->
-                    task {
-                        let! (youtubeURL,files) = discoverYoutubeLink youtubeURL
-                        dispatch (NewYoutubeMediaFiles (youtubeURL,files,false))
-                    }
-                | _ -> task { return () } )
-            |> Task.WhenAll
-        ()
+        match Decode.fromString TagList.Decoder result with
+        | Error msg -> return failwith msg
+        | Ok list ->
+            let! _ =
+                list.Tags
+                |> Array.map (fun tag ->
+                    match tag.Action with
+                    | TagAction.PlayYoutube youtubeURL ->
+                        task {
+                            let! (youtubeURL,files) = discoverYoutubeLink youtubeURL
+                            dispatch (NewYoutubeMediaFiles (youtubeURL,files,false))
+                        }
+                    | _ -> task { return () } )
+                |> Task.WhenAll
+            ()
+        do! Task.Delay (int (TimeSpan.FromHours 3.).TotalMilliseconds)
 }
 
 

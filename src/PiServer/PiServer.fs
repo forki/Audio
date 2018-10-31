@@ -18,6 +18,14 @@ let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
 
 let ofTask t p m1 m2 = Cmd.ofAsync (t >> Async.AwaitTask) p m1 m2
 
+let runIn (timeSpan:TimeSpan) successMsg errorMsg =
+    let t() = task {
+        do! Task.Delay (int timeSpan.TotalMilliseconds)
+        return ()
+    }
+    ofTask t () (fun _ -> successMsg) errorMsg
+
+
 let log =
     let log4netConfig = XmlDocument()
     log4netConfig.Load(File.OpenRead("log4net.config"))
@@ -68,7 +76,7 @@ type Msg =
 | PlayerStopped of unit
 | StartMediaPlayer
 | Started of Process
-| FinishPlaylist
+| FinishPlaylist of unit
 | Noop of unit
 | DiscoverYoutube of string * bool
 | NewYoutubeMediaFiles of string * string [] * bool
@@ -313,7 +321,7 @@ let update (msg:Msg) (model:Model) =
         { model with RFID = Some rfid }, ofTask resolveRFID (model,rfid) NewTag Err
 
     | RFIDRemoved ->
-        { model with RFID = None }, Cmd.ofMsg FinishPlaylist
+        { model with RFID = None }, Cmd.ofMsg (FinishPlaylist())
 
     | NewTag tag ->
         model, Cmd.ofMsg (ExecuteActions [tag.Action])
@@ -328,7 +336,7 @@ let update (msg:Msg) (model:Model) =
         | Some playList ->
             if playList.Position < 0 || playList.Position >= playList.MediaFiles.Length then
                 log.InfoFormat("Playlist has only {0} elements. Can't play media file {1}.", playList.MediaFiles.Length , playList.Position + 1)
-                model, Cmd.ofMsg FinishPlaylist
+                model, Cmd.ofMsg (FinishPlaylist())
             else
                 let start dispatch =
                     log.InfoFormat( "Playing audio file {0} / {1}", playList.Position + 1, playList.MediaFiles.Length)
@@ -362,7 +370,7 @@ let update (msg:Msg) (model:Model) =
                 | PlayListAction.Previous -> { playList with Position = max 0 (playList.Position - 1) }
 
             if newPlayList.Position >= newPlayList.MediaFiles.Length then
-                model, Cmd.ofMsg FinishPlaylist
+                model, Cmd.ofMsg (FinishPlaylist())
             else
                 { model with PlayList = Some newPlayList }, Cmd.ofMsg StartMediaPlayer
 
@@ -384,11 +392,11 @@ let update (msg:Msg) (model:Model) =
                 Position = 0
             }
 
-            model, Cmd.batch [ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (Play playList)]
+            model, Cmd.batch [ofTask killMusikPlayer () FinishPlaylist Err; Cmd.ofMsg (Play playList)]
         | _ ->
             model, Cmd.ofMsg (DiscoverYoutube (youtubeURL,true))
 
-    | FinishPlaylist ->
+    | FinishPlaylist _ ->
         { model with PlayList = None }, ofTask killMusikPlayer () PlayerStopped Err
 
     | DiscoverYoutube (youtubeURL,playAfterwards) ->

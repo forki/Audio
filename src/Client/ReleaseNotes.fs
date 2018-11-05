@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "0.15.8"
+let Version = "0.15.9"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 0.15.8 - 2018-11-05
+## 0.15.9 - 2018-11-05
 * Model-Audio-Update
 
 ## 0.14.24 - 2018-10-31

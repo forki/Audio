@@ -49,14 +49,14 @@ module Program =
         let mutable lastView = None
         let mutable activelyKilled = false
 
-        let isActivelyKilled() = activelyKilled
+        let isActivelyKilled dispatch = 
+            if not activelyKilled then
+                dispatch stoppedMsg
 
         let play dispatch file volume =
             let p = new System.Diagnostics.Process()
             p.EnableRaisingEvents <- true
-            p.Exited.Add (fun _ ->
-                if not (isActivelyKilled()) then
-                    dispatch stoppedMsg)
+            p.Exited.Add (fun _ -> isActivelyKilled dispatch)
 
             let startInfo = System.Diagnostics.ProcessStartInfo()
             startInfo.FileName <- "omxplayer"
@@ -74,7 +74,8 @@ module Program =
                         let startInfo = System.Diagnostics.ProcessStartInfo()
                         startInfo.FileName <- "sudo"
                         startInfo.Arguments <- "kill -9 " + p.Id.ToString()
-                        killP.StartInfo <- startInfo
+                        killP.StartInfo <- startInfo                        
+                        activelyKilled <- true
                         let _ = killP.Start()
 
                         while not p.HasExited do
@@ -88,7 +89,6 @@ module Program =
             | Some r when r = v -> ()
             | Some r ->
                 if r.Url <> v.Url then
-                    activelyKilled <- true
                     killMusikPlayer () |> Async.AwaitTask |> Async.RunSynchronously
 
                 if r.Url = v.Url && v.Url <> None && r.Volume <> v.Volume then

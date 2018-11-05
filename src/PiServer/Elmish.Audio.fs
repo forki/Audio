@@ -41,7 +41,6 @@ dbus-send --print-reply --session --reply-timeout=500 \
 
 
 
-
 [<RequireQualifiedAccess>]
 module Program =
 
@@ -49,14 +48,14 @@ module Program =
         let mutable lastView = None
         let mutable activelyKilled = false
 
-        let isActivelyKilled _args dispatch = 
+        let isActivelyKilled dispatch _args = 
             if not activelyKilled then
                 dispatch stoppedMsg
 
         let play dispatch file volume =
             let p = new System.Diagnostics.Process()
             p.EnableRaisingEvents <- true
-            p.Exited.Add (fun args -> isActivelyKilled args dispatch)
+            p.Exited.Add (isActivelyKilled dispatch)
 
             let startInfo = System.Diagnostics.ProcessStartInfo()
             startInfo.FileName <- "omxplayer"

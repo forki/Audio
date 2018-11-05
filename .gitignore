@@ -20,3 +20,4 @@ deploy
 /firmware
 yarn-error.log
 /src/PiServer/logs/clientlog.log
+/src/PiServer/logs/

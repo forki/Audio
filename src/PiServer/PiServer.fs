@@ -17,14 +17,12 @@ open Elmish.Audio
 
 let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
 
-let ofTask t p m1 m2 = Cmd.ofAsync (t >> Async.AwaitTask) p m1 m2
-
 let runIn (timeSpan:TimeSpan) successMsg errorMsg =
     let t() = task {
         do! Task.Delay (int timeSpan.TotalMilliseconds)
         return ()
     }
-    ofTask t () (fun _ -> successMsg) errorMsg
+    Cmd.ofTask t () (fun _ -> successMsg) errorMsg
 
 
 let log =
@@ -43,11 +41,6 @@ type PlayList = {
     Position : int
 }
 
-[<RequireQualifiedAccess>]
-type PlayListAction =
-| Next
-| Previous
-
 type Model = {
     PlayList : PlayList option
     FirmwareUpdateInterval : TimeSpan
@@ -56,8 +49,6 @@ type Model = {
     Volume : float
     RFID : string option
     YoutubeLinks : Map<string,string[]>
-    MediaPlayerProcess : Process option
-    NextPlayListAction : PlayListAction
     NodeServices : INodeServices
 }
 
@@ -75,14 +66,11 @@ type Msg =
 | NextMediaFile
 | PreviousMediaFile
 | PlayerStopped of unit
-| StartMediaPlayer
-| Started of Process
 | FinishPlaylist of unit
 | Noop of unit
 | DiscoverYoutube of string * bool
 | NewYoutubeMediaFiles of string * string [] * bool
 | Err of exn
-
 
 
 let rfidLoop (dispatch,nodeServices:INodeServices) = task {
@@ -123,9 +111,7 @@ let init nodeServices : Model * Cmd<Msg> =
       Volume = 0.5 // TODO: load from webserver
       RFID = None
       YoutubeLinks = Map.empty
-      NextPlayListAction = PlayListAction.Next
-      NodeServices = nodeServices
-      MediaPlayerProcess = None }, Cmd.ofMsg CheckFirmware
+      NodeServices = nodeServices }, Cmd.ofMsg CheckFirmware
 
 let resolveRFID (model:Model,token:string) = task {
     use webClient = new System.Net.WebClient()
@@ -136,8 +122,6 @@ let resolveRFID (model:Model,token:string) = task {
     | Error msg -> return failwith msg
     | Ok tag -> return tag
 }
-
-
 
 
 let mutable nextFirmwareCheck = DateTimeOffset.MinValue
@@ -278,7 +262,7 @@ let update (msg:Msg) (model:Model) =
         { model with Volume = vol }, Cmd.ofFunc setVolumeScript vol Noop Err
 
     | NewRFID rfid ->
-        { model with RFID = Some rfid }, ofTask resolveRFID (model,rfid) NewTag Err
+        { model with RFID = Some rfid }, Cmd.ofTask resolveRFID (model,rfid) NewTag Err
 
     | RFIDRemoved ->
         { model with RFID = None }, Cmd.ofMsg (FinishPlaylist())
@@ -289,48 +273,34 @@ let update (msg:Msg) (model:Model) =
     | Play playList ->
         let model = { model with PlayList = Some playList }
         log.InfoFormat("Playing new PlayList: {0}: Files: {1}", playList.Uri, playList.MediaFiles.Length)
-        model, Cmd.ofMsg StartMediaPlayer
-
-    | StartMediaPlayer ->
-        match model.PlayList with
-        | Some playList ->
-            if playList.Position < 0 || playList.Position >= playList.MediaFiles.Length then
-                log.InfoFormat("Playlist has only {0} elements. Can't play media file {1}.", playList.MediaFiles.Length , playList.Position + 1)
-                model, Cmd.ofMsg (FinishPlaylist())
-            else
-                log.InfoFormat( "Playing audio file {0} / {1}", playList.Position + 1, playList.MediaFiles.Length)
-    
-                model, Cmd.none
-        | None ->
-            log.Error "No playlist set"
-            model, Cmd.none
-
-    | Started p ->
-        { model with MediaPlayerProcess = Some p }, Cmd.none
+        model, Cmd.none
 
     | PlayerStopped _ ->
+        model, Cmd.ofMsg NextMediaFile
+
+    | NextMediaFile ->
         match model.PlayList with
         | Some playList ->
-            let model = { model with MediaPlayerProcess = None }
-
-            let newPlayList =
-                match model.NextPlayListAction with
-                | PlayListAction.Next -> { playList with Position = playList.Position + 1 }
-                | PlayListAction.Previous -> { playList with Position = max 0 (playList.Position - 1) }
+            let newPlayList = { playList with Position = playList.Position + 1 }
 
             if newPlayList.Position >= newPlayList.MediaFiles.Length then
                 model, Cmd.ofMsg (FinishPlaylist())
             else
-                { model with PlayList = Some newPlayList }, Cmd.ofMsg StartMediaPlayer
-
+                { model with PlayList = Some newPlayList }, Cmd.none
         | _ ->
-            { model with MediaPlayerProcess = None }, Cmd.none
-
-    | NextMediaFile ->
-        { model with NextPlayListAction = PlayListAction.Next }, ofTask killMusikPlayer () Noop Err
+            model, Cmd.none
 
     | PreviousMediaFile ->
-        { model with NextPlayListAction = PlayListAction.Previous }, ofTask killMusikPlayer () Noop Err
+        match model.PlayList with
+        | Some playList ->
+            let newPlayList = { playList with Position = playList.Position - 1 }
+
+            if newPlayList.Position < 0 then
+                { model with PlayList = Some { playList with Position = 0 } }, Cmd.none
+            else
+                { model with PlayList = Some newPlayList }, Cmd.none
+        | _ ->
+            model, Cmd.none
 
     | PlayYoutube youtubeURL ->
         match model.YoutubeLinks.TryGetValue youtubeURL with
@@ -341,15 +311,15 @@ let update (msg:Msg) (model:Model) =
                 Position = 0
             }
 
-            model, Cmd.batch [ofTask killMusikPlayer () FinishPlaylist Err; Cmd.ofMsg (Play playList)]
+            model, Cmd.ofMsg (Play playList)
         | _ ->
             model, Cmd.ofMsg (DiscoverYoutube (youtubeURL,true))
 
     | FinishPlaylist _ ->
-        { model with PlayList = None }, ofTask killMusikPlayer () PlayerStopped Err
+        { model with PlayList = None }, Cmd.none
 
     | DiscoverYoutube (youtubeURL,playAfterwards) ->
-        model, ofTask discoverYoutubeLink youtubeURL (fun (youtubeURL,files) -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
+        model, Cmd.ofTask discoverYoutubeLink youtubeURL (fun (youtubeURL,files) -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
 
     | NewYoutubeMediaFiles (youtubeURL,files,playAfterwards) ->
         let model = { model with YoutubeLinks = model.YoutubeLinks |> Map.add youtubeURL files }
@@ -359,7 +329,7 @@ let update (msg:Msg) (model:Model) =
             model, Cmd.none
 
     | CheckFirmware ->
-        model, ofTask checkFirmware model FirmwareUpToDate Err
+        model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
 
     | Noop _ ->
         model, Cmd.none
@@ -368,7 +338,7 @@ let update (msg:Msg) (model:Model) =
         log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)
         model,
             Cmd.batch [
-                ofTask getStartupActions model ExecuteActions Err
+                Cmd.ofTask getStartupActions model ExecuteActions Err
                 [fun dispatch -> discoverAllYoutubeLinks (dispatch,model) |> Async.AwaitTask |> Async.StartImmediate ]
                 [fun dispatch -> rfidLoop (dispatch,model.NodeServices) |> Async.AwaitTask |> Async.StartImmediate ]
             ]
@@ -381,16 +351,16 @@ let update (msg:Msg) (model:Model) =
                 log.Warn "Unknown Tag"
                 model, Cmd.ofMsg (ExecuteActions rest)
             | TagAction.StopMusik ->
-                model, Cmd.batch [ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (ExecuteActions rest) ]
+                model, Cmd.batch [Cmd.ofMsg (FinishPlaylist()); Cmd.ofMsg (ExecuteActions rest) ]
             | TagAction.PlayMusik url ->
                 let playList : PlayList = {
                     Uri = url
                     MediaFiles = [| url |]
                     Position = 0
                 }
-                model, Cmd.batch [ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]
+                model, Cmd.batch [Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]
             | TagAction.PlayYoutube youtubeURL ->
-                model, Cmd.batch [ofTask killMusikPlayer () PlayerStopped Err; Cmd.ofMsg (PlayYoutube youtubeURL); Cmd.ofMsg (ExecuteActions rest) ]
+                model, Cmd.batch [Cmd.ofMsg (PlayYoutube youtubeURL); Cmd.ofMsg (ExecuteActions rest) ]
             | TagAction.PlayBlobMusik _ ->
                 log.Error "Blobs links need to be converted to direct links by the tag server"
                 model, Cmd.ofMsg (ExecuteActions rest)

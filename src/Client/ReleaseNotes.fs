@@ -7,6 +7,9 @@ let IsPrerelease = false
 let Notes = """
 # Release Notes
 
+## 0.14.24 - 2018-11-05
+* Model-Audio-Update
+
 ## 0.14.24 - 2018-10-31
 * TagHistory websocket
 

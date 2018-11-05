@@ -49,14 +49,14 @@ module Program =
         let mutable lastView = None
         let mutable activelyKilled = false
 
-        let isActivelyKilled dispatch = 
+        let isActivelyKilled _args dispatch = 
             if not activelyKilled then
                 dispatch stoppedMsg
 
         let play dispatch file volume =
             let p = new System.Diagnostics.Process()
             p.EnableRaisingEvents <- true
-            p.Exited.Add (fun _ -> isActivelyKilled dispatch)
+            p.Exited.Add (fun args -> isActivelyKilled args dispatch)
 
             let startInfo = System.Diagnostics.ProcessStartInfo()
             startInfo.FileName <- "omxplayer"

@@ -13,6 +13,7 @@ open System.Xml
 open System.Reflection
 open GeneralIO
 open Elmish
+open Elmish.Audio
 
 let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
 
@@ -126,9 +127,6 @@ let init nodeServices : Model * Cmd<Msg> =
       NodeServices = nodeServices
       MediaPlayerProcess = None }, Cmd.ofMsg CheckFirmware
 
-let getMusikPlayerProcesses() = Process.GetProcessesByName("omxplayer.bin")
-
-
 let resolveRFID (model:Model,token:string) = task {
     use webClient = new System.Net.WebClient()
     let url = sprintf @"%s/api/tags/%s/%s" model.TagServer model.UserID token
@@ -140,23 +138,6 @@ let resolveRFID (model:Model,token:string) = task {
 }
 
 
-let killMusikPlayer() = task {
-    for p in getMusikPlayerProcesses() do
-        if not p.HasExited then
-            try
-                log.Info "stopping omxplaxer"
-                let killP = new System.Diagnostics.Process()
-                let startInfo = System.Diagnostics.ProcessStartInfo()
-                startInfo.FileName <- "sudo"
-                startInfo.Arguments <- "kill -9 " + p.Id.ToString()
-                killP.StartInfo <- startInfo
-                let _ = killP.Start()
-
-                while not p.HasExited do
-                    do! Task.Delay 10
-                log.Info "stopped"
-            with _ -> log.Warn "couldn't kill omxplayer"
-}
 
 
 let mutable nextFirmwareCheck = DateTimeOffset.MinValue
@@ -173,8 +154,6 @@ let runFirmwareUpdate() =
     startInfo.CreateNoWindow <- true
     p.StartInfo <- startInfo
     p.Start() |> ignore
-
-
 
 let checkFirmware (model:Model) = task {
     use webClient = new System.Net.WebClient()
@@ -250,25 +229,28 @@ let discoverYoutubeLink (youtubeURL:string) = task {
 
 let discoverAllYoutubeLinks (dispatch,model:Model) = task {
     while true do
-        use webClient = new System.Net.WebClient()
-        let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
-        let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+        try
+            use webClient = new System.Net.WebClient()
+            let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
+            let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
-        match Decode.fromString TagList.Decoder result with
-        | Error msg -> return failwith msg
-        | Ok list ->
-            let! _ =
-                list.Tags
-                |> Array.map (fun tag ->
-                    match tag.Action with
-                    | TagAction.PlayYoutube youtubeURL ->
-                        task {
-                            let! (youtubeURL,files) = discoverYoutubeLink youtubeURL
-                            dispatch (NewYoutubeMediaFiles (youtubeURL,files,false))
-                        }
-                    | _ -> task { return () } )
-                |> Task.WhenAll
-            ()
+            match Decode.fromString TagList.Decoder result with
+            | Error msg -> return failwith msg
+            | Ok list ->
+                let! _ =
+                    list.Tags
+                    |> Array.map (fun tag ->
+                        match tag.Action with
+                        | TagAction.PlayYoutube youtubeURL ->
+                            task {
+                                let! (youtubeURL,files) = discoverYoutubeLink youtubeURL
+                                dispatch (NewYoutubeMediaFiles (youtubeURL,files,false))
+                            }
+                        | _ -> task { return () } )
+                    |> Task.WhenAll
+                ()
+        with
+        | exn -> log.ErrorFormat("Could not disover YouTube: {0}", exn.Message)
         do! Task.Delay (int (TimeSpan.FromHours 3.).TotalMilliseconds)
 }
 
@@ -283,30 +265,6 @@ let getStartupActions (model:Model) = task {
     | Ok actions -> return actions
 }
 
-
-let setVolumeScript volume =
-    let volumeScript = "./volume.sh"
-    let txt = sprintf """export DBUS_SESSION_BUS_ADDRESS=$(cat /tmp/omxplayerdbus.root)
-dbus-send --print-reply --session --reply-timeout=500 \
-           --dest=org.mpris.MediaPlayer2.omxplayer \
-           /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Set \
-           string:"org.mpris.MediaPlayer2.Player" \
-           string:"Volume" double:%.2f""" volume
-
-    if File.Exists volumeScript then
-        File.Delete(volumeScript)
-    File.WriteAllText(volumeScript,txt.Replace("\r\n","\n").Replace("\r","\n"))
-    let p = new Process()
-    let startInfo = new ProcessStartInfo()
-    startInfo.WorkingDirectory <- "./"
-    startInfo.FileName <- "sudo"
-    startInfo.Arguments <- "sh volume.sh"
-    startInfo.RedirectStandardOutput <- true
-    startInfo.UseShellExecute <- false
-    startInfo.CreateNoWindow <- true
-    p.StartInfo <- startInfo
-    log.InfoFormat("Setting volume to {0}", volume)
-    p.Start() |> ignore
 
 
 let update (msg:Msg) (model:Model) =
@@ -340,20 +298,9 @@ let update (msg:Msg) (model:Model) =
                 log.InfoFormat("Playlist has only {0} elements. Can't play media file {1}.", playList.MediaFiles.Length , playList.Position + 1)
                 model, Cmd.ofMsg (FinishPlaylist())
             else
-                let start dispatch =
-                    log.InfoFormat( "Playing audio file {0} / {1}", playList.Position + 1, playList.MediaFiles.Length)
-                    let p = new System.Diagnostics.Process()
-                    p.EnableRaisingEvents <- true
-                    p.Exited.Add (fun _ -> dispatch (PlayerStopped ()))
-
-                    let startInfo = System.Diagnostics.ProcessStartInfo()
-                    startInfo.FileName <- "omxplayer"
-                    let volume = int (Math.Round(2000. * Math.Log10 model.Volume))
-                    startInfo.Arguments <- sprintf "--vol %d " volume + playList.MediaFiles.[playList.Position]
-                    p.StartInfo <- startInfo
-
-                    p.Start() |> ignore
-                model, [start]
+                log.InfoFormat( "Playing audio file {0} / {1}", playList.Position + 1, playList.MediaFiles.Length)
+    
+                model, Cmd.none
         | None ->
             log.Error "No playlist set"
             model, Cmd.none
@@ -478,9 +425,16 @@ aspnetapp.Start()
 log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
 let nodeServices = aspnetapp.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
+let view (model:Model) dispatch : Audio =
+    match model.PlayList with
+    | Some playList ->
+        { Url = Some playList.MediaFiles.[playList.Position]; Volume = model.Volume }
+    | _ -> { Url = None; Volume = model.Volume }
+
 let app =
-    Program.mkProgram init update (fun x dispatch -> ())
+    Program.mkProgram init update view
     |> Program.withTrace (fun msg _model -> log.InfoFormat("{0}", msg))
+    |> Program.withAudio (PlayerStopped())
 
 
 Program.runWith nodeServices app

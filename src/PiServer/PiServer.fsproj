@@ -9,6 +9,7 @@
     <ItemGroup>
         <Compile Include="..\Client\ReleaseNotes.fs" />
         <Compile Include="..\Shared\Shared.fs" />
+        <Compile Include="Elmish.Audio.fs" />
         <Compile Include="GeneralIO.fs" />
         <Compile Include="SemVer.fs" />
         <Compile Include="PiServer.fs" />

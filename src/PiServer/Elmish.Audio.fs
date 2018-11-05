@@ -46,15 +46,16 @@ dbus-send --print-reply --session --reply-timeout=500 \
 module Program =
 
     let withAudio stoppedMsg (program:Elmish.Program<_,_,_,_>) =
-        let mutable lastModel = None
         let mutable lastView = None
         let mutable activelyKilled = false
+
+        let isActivelyKilled() = activelyKilled
 
         let play dispatch file volume =
             let p = new System.Diagnostics.Process()
             p.EnableRaisingEvents <- true
             p.Exited.Add (fun _ ->
-                if not activelyKilled then
+                if not (isActivelyKilled()) then
                     dispatch stoppedMsg)
 
             let startInfo = System.Diagnostics.ProcessStartInfo()
@@ -82,32 +83,27 @@ module Program =
         }
 
         let setState model dispatch =
-            match lastModel with
-            | Some r when r = model -> ()
+            let (v:Audio) = program.view model dispatch
+            match lastView with
+            | Some r when r = v -> ()
+            | Some r ->
+                if r.Url <> v.Url then
+                    activelyKilled <- true
+                    killMusikPlayer () |> Async.AwaitTask |> Async.RunSynchronously
+
+                if r.Url = v.Url && v.Url <> None && r.Volume <> v.Volume then
+                    setVolumeScript v.Volume
+
+                match v.Url with
+                | Some url when v.Url <> r.Url ->
+                    play dispatch url v.Volume
+                | _ -> ()
             | _ ->
-                let (v:Audio) = program.view model dispatch
-                match lastView with
-                | Some r when r = v -> ()
-                | Some r ->
-                    if r.Url <> v.Url then
-                        activelyKilled <- true
-                        killMusikPlayer () |> Async.AwaitTask |> Async.RunSynchronously
+                match v.Url with
+                | Some url ->
+                    play dispatch url v.Volume
+                | _ -> ()
 
-                    if r.Url = v.Url && v.Url <> None && r.Volume <> v.Volume then
-                        setVolumeScript v.Volume
-
-                    match v.Url with
-                    | Some url when v.Url <> r.Url ->
-                        play dispatch url v.Volume
-                    | _ -> ()
-                | _ ->
-                    match v.Url with
-                    | Some url ->
-                        play dispatch url v.Volume
-                    | _ -> ()
-
-                lastView <- Some v
-
-            lastModel <- Some model
+            lastView <- Some v
 
         { program with setState = setState }

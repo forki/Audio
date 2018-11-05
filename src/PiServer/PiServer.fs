@@ -339,7 +339,7 @@ let update (msg:Msg) (model:Model) =
         model,
             Cmd.batch [
                 Cmd.ofTask getStartupActions model ExecuteActions Err
-                [fun dispatch -> discoverAllYoutubeLinks (dispatch,model) |> Async.AwaitTask |> Async.StartImmediate ]
+                //[fun dispatch -> discoverAllYoutubeLinks (dispatch,model) |> Async.AwaitTask |> Async.StartImmediate ]
                 [fun dispatch -> rfidLoop (dispatch,model.NodeServices) |> Async.AwaitTask |> Async.StartImmediate ]
             ]
 

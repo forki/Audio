@@ -74,11 +74,15 @@ type Msg =
 
 
 let rfidLoop (dispatch,nodeServices:INodeServices) = task {
+    log.InfoFormat("Connecting all buttons")
+
     use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> dispatch NextMediaFile)
     use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> dispatch PreviousMediaFile)
     use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> dispatch VolumeDown)
     use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> dispatch VolumeUp)
 
+
+    log.InfoFormat("Waiting for RFID cards or NFC tags...")
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
 
@@ -339,7 +343,7 @@ let update (msg:Msg) (model:Model) =
         model,
             Cmd.batch [
                 Cmd.ofTask getStartupActions model ExecuteActions Err
-                //[fun dispatch -> discoverAllYoutubeLinks (dispatch,model) |> Async.AwaitTask |> Async.StartImmediate ]
+                [fun dispatch -> discoverAllYoutubeLinks (dispatch,model) |> Async.AwaitTask |> Async.StartImmediate ]
                 [fun dispatch -> rfidLoop (dispatch,model.NodeServices) |> Async.AwaitTask |> Async.StartImmediate ]
             ]
 

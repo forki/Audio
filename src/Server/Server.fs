@@ -12,7 +12,6 @@ open System.Threading
 open System.Threading.Tasks
 open Giraffe.WebSocket
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Hosting
 open System.Diagnostics
 
 #if DEBUG
@@ -143,8 +142,8 @@ let discoverYoutubeLink (youtubeURL:string) = task {
     let lines = System.Collections.Generic.List<_>()
     let proc = new Process ()
     let startInfo = new ProcessStartInfo()
-    startInfo.FileName <- "sudo"
-    startInfo.Arguments <- sprintf "youtube-dl -g \"%s\"" youtubeURL
+    startInfo.FileName <- "/usr/local/bin/youtube-dl"
+    startInfo.Arguments <- sprintf " -g \"%s\"" youtubeURL
     startInfo.UseShellExecute <- false
     startInfo.RedirectStandardOutput <- true
     startInfo.CreateNoWindow <- true

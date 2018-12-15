@@ -146,6 +146,7 @@ let discoverYoutubeLink (youtubeURL:string) = task {
     startInfo.Arguments <- sprintf " -g \"%s\"" youtubeURL
     startInfo.UseShellExecute <- false
     startInfo.RedirectStandardOutput <- true
+    startInfo.RedirectStandardError <- true
     startInfo.CreateNoWindow <- true
     proc.StartInfo <- startInfo
 

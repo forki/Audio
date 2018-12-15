@@ -120,7 +120,7 @@ let inline getOptionalDoubleProperty (propName:string) (entity: DynamicTableEnti
 
 
 let storageConnectionString =
-    let str = System.Environment.GetEnvironmentVariable("CUSTOMCONNSTR_STORAGE")
+    let str = System.Environment.GetEnvironmentVariable("APPSETTING_CONNSTR_STORAGE")
     if isNull str then
         "UseDevelopmentStorage=true"
     else

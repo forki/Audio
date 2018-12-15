@@ -172,14 +172,8 @@ let discoverEndpoint (url) =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-//            let! tag = discoverYoutubeLink url
-            let envVars = 
-              System.Environment.GetEnvironmentVariables()
-              |> Seq.cast<System.Collections.DictionaryEntry>
-              |> Seq.map (fun d -> d.Key :?> string, d.Value :?> string)
-              |> Seq.toList
-                                
-            return! setBodyFromString (sprintf "%A" envVars) next ctx
+            let! tag = discoverYoutubeLink url
+            return! setBodyFromString (sprintf "%A" tag) next ctx
         })
     }
 

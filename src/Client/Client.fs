@@ -300,7 +300,6 @@ let view (model : Model) (dispatch : Msg -> unit) =
 
 #if DEBUG
 open Elmish.Debug
-open Elmish.HMR
 #endif
 
 Program.mkProgram init update view

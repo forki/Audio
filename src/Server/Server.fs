@@ -172,9 +172,9 @@ let discoverEndpoint (url) =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let! tag = discoverYoutubeLink url
+//            let! tag = discoverYoutubeLink url
 
-            return! setBodyFromString (sprintf "%A" tag) next ctx
+            return! setBodyFromString (System.Environment.GetEnvironmentVariable("CUSTOMCONNSTR_STORAGE")) next ctx
         })
     }
 

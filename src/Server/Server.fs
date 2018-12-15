@@ -173,8 +173,13 @@ let discoverEndpoint (url) =
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
 //            let! tag = discoverYoutubeLink url
-
-            return! setBodyFromString (System.Environment.GetEnvironmentVariable("CUSTOMCONNSTR_STORAGE")) next ctx
+            let envVars = 
+              System.Environment.GetEnvironmentVariables()
+              |> Seq.cast<System.Collections.DictionaryEntry>
+              |> Seq.map (fun d -> d.Key :?> string, d.Value :?> string)
+              |> Seq.toList
+                                
+            return! setBodyFromString (sprintf "%A" envVars) next ctx
         })
     }
 

@@ -13,6 +13,7 @@ open System.Threading.Tasks
 open Giraffe.WebSocket
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
+open System.Diagnostics
 
 #if DEBUG
 let publicPath = Path.GetFullPath "../Client/public"
@@ -138,6 +139,40 @@ let firmwareEndpoint =
     }
 
 
+let discoverYoutubeLink (youtubeURL:string) = task {
+    let lines = System.Collections.Generic.List<_>()
+    let proc = new Process ()
+    let startInfo = new ProcessStartInfo()
+    startInfo.FileName <- "sudo"
+    startInfo.Arguments <- sprintf "youtube-dl -g \"%s\"" youtubeURL
+    startInfo.UseShellExecute <- false
+    startInfo.RedirectStandardOutput <- true
+    startInfo.CreateNoWindow <- true
+    proc.StartInfo <- startInfo
+
+    proc.Start() |> ignore
+    while not proc.StandardOutput.EndOfStream do
+        let! line = proc.StandardOutput.ReadLineAsync()
+        lines.Add line
+
+    let lines = Seq.toArray lines
+    let links =
+        lines
+        |> Array.filter (fun x -> x.Contains "&mime=audio")
+
+    return youtubeURL,links
+}
+
+let discoverEndpoint (url) =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let! tag = discoverYoutubeLink url
+
+            return! setBodyFromString (sprintf "%A" tag) next ctx
+        })
+    }
+
 let tagHistoryBroadcaster = ConnectionManager()
 
 let t = task {
@@ -154,6 +189,7 @@ let webApp =
         postf "/api/upload/%s" uploadEndpoint
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
+        get "/api/discover" (discoverEndpoint "https://www.youtube.com/watch?v=kfSlg3HtaSw")
         get "/api/latestfirmware" getLatestFirmware
         getf "/api/taghistorysocket/%s" (TagHistorySocket.openSocket tagHistoryBroadcaster)
     }

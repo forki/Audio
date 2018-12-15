@@ -209,7 +209,7 @@ let update (msg:Msg) (model:Model) =
         { model with RFID = None }, Cmd.ofMsg (FinishPlaylist())
 
     | NewTag tag ->
-        log.InfoFormat("Got new tag from server: %s", tag)
+        log.InfoFormat("Got new tag from server: {0}", tag)
         model, Cmd.ofMsg (ExecuteActions [tag.Action])
 
     | Play playList ->

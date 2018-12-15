@@ -124,9 +124,10 @@ let tagEndpoint (userID,token) =
             let! tag = AzureTable.getTag userID token
             let! tag =
                 match tag with
-                | Some t -> mapBlobMusikTag t
+                | Some t -> t |> mapBlobMusikTag
                 | _ -> task { return { Token = token; Action = TagAction.UnknownTag; Description = ""; Object = "" } }
 
+            let! tag = tag |> mapYoutube
             let txt = Tag.Encoder tag |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })

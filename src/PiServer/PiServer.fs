@@ -60,6 +60,7 @@ type Msg =
 | FirmwareUpToDate of unit
 | ExecuteActions of TagAction list
 | RFIDRemoved
+| DiscoverStartup
 | NewTag of Tag
 | Play of PlayList
 | PlayYoutube of string
@@ -237,7 +238,7 @@ let discoverAllYoutubeLinks (dispatch,model:Model) = task {
                     |> Task.WhenAll
                 ()
         with
-        | exn -> log.ErrorFormat("Could not disover YouTube: {0}", exn.Message)
+        | exn -> log.ErrorFormat("Could not discover YouTube: {0}", exn.Message)
         do! Task.Delay (int (TimeSpan.FromHours 3.).TotalMilliseconds)
 }
 
@@ -338,12 +339,15 @@ let update (msg:Msg) (model:Model) =
     | Noop _ ->
         model, Cmd.none
 
+    | DiscoverStartup ->
+        model, Cmd.ofTask getStartupActions model ExecuteActions Err
+
     | FirmwareUpToDate _ ->
         log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)
         model,
             Cmd.batch [
-                Cmd.ofTask getStartupActions model ExecuteActions Err
-                [fun dispatch -> discoverAllYoutubeLinks (dispatch,model) |> Async.AwaitTask |> Async.StartImmediate ]
+                Cmd.ofMsg DiscoverStartup
+               // [fun dispatch -> discoverAllYoutubeLinks (dispatch,model) |> Async.AwaitTask |> Async.StartImmediate ]
                 [fun dispatch -> rfidLoop (dispatch,model.NodeServices) |> Async.AwaitTask |> Async.StartImmediate ]
             ]
 

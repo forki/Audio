@@ -12,15 +12,11 @@ var CONFIG = {
             resolve("./Client.fsproj")
         ],
     outputDir: resolve("./public"),
-    devServerPort: undefined,
     devServerProxy: {
         '/api/*': {
             target: 'http://localhost:' + (process.env.SUAVE_FABLE_PORT || "8085"),
             changeOrigin: true
         }
-    },
-    historyApiFallback: {
-        index: resolve("./index.html")
     },
     contentBase: __dirname,
     // Use babel-preset-env to generate JS compatible with most-used browsers.
@@ -35,7 +31,7 @@ var CONFIG = {
                 "useBuiltIns": "usage",
             }]
         ],
-        plugins: ["@babel/plugin-transform-runtime"]
+        plugins: ["@babel/plugin-transform-runtime","@babel/plugin-proposal-class-properties"]
     }
 }
 
@@ -92,7 +88,7 @@ module.exports = {
         proxy: CONFIG.devServerProxy,
         hot: true,
         inline: true,
-        historyApiFallback: CONFIG.historyApiFallback,
+        historyApiFallback: true,
         contentBase: CONFIG.contentBase
     },
     // - fable-loader: transforms F# into JS
@@ -100,8 +96,14 @@ module.exports = {
     module: {
         rules: [
             {
-                test: /\.fs(x|proj)?$/,
-                use: "fable-loader"
+                test: /\.fs(x|proj)?$/, 
+                use: {
+                    loader: "fable-loader",
+                    options: {
+                        babel: CONFIG.babel,
+                        define: isProduction ? [] : ["DEBUG"]
+                   }
+                },
             },
             {
                 test: /\.js$/,
@@ -110,6 +112,14 @@ module.exports = {
                     loader: 'babel-loader',
                     options: CONFIG.babel
                 },
+            },
+            {
+              test: /\.css$/,
+              use: [ 'style-loader', 'css-loader' ]
+            },
+            {
+              test: /\.scss$/,
+              use: [ "style-loader", "css-loader", "sass-loader" ]
             }
         ]
     }

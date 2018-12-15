@@ -2,6 +2,7 @@ module Client
 
 open Elmish
 open Elmish.React
+open Elmish.HMR
 open Fable.PowerPack
 
 #if FABLE_COMPILER
@@ -13,7 +14,6 @@ open Thoth.Json.Net
 open System
 open Fable.PowerPack.Fetch
 open Fulma
-open Fulma.FontAwesome
 open ServerCore.Domain
 
 type Model = {
@@ -208,14 +208,7 @@ let navMenu =
               Navbar.Item.a [ ]
                 [ str "Examples" ]
               Navbar.Item.a [ Navbar.Item.Option.Props [Href "https://github.com/forki/Audio#installation"]]
-                [ str "Documentation" ]
-              Navbar.Item.div [ ]
-                [ Button.a
-                    [ Button.Size IsSmall
-                      Button.Props [ Href "https://github.com/forki/Audio" ] ]
-                    [ Icon.faIcon [ ]
-                        [ Fa.icon Fa.I.Github; Fa.fw ]
-                      span [ ] [ str "View Source" ] ] ] ] ]
+                [ str "Documentation" ]] ]
 
 let filterBox (model : Model) (dispatch : Msg -> unit) =
     Box.box' [ ]
@@ -313,7 +306,6 @@ open Elmish.HMR
 Program.mkProgram init update view
 #if DEBUG
 |> Program.withConsoleTrace
-|> Program.withHMR
 #endif
 |> Program.withReact "elmish-app"
 #if DEBUG

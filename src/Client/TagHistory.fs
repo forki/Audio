@@ -3,12 +3,8 @@ module TagHistory
 
 open System
 open Fable.Helpers.React
-open Fable.Helpers.React.Props
 open Fable.PowerPack
-open Fable.PowerPack.Fetch
 open Elmish
-open Fulma
-open Fulma.FontAwesome
 open ServerCore.Domain
 
 #if FABLE_COMPILER

@@ -20,10 +20,9 @@ group Client
     nuget Fable.Elmish.React
     nuget Fable.Elmish.HMR
     nuget Fulma
+    nuget Fable.FontAwesome.Free
     nuget Thoth.Json.Net
     nuget Thoth.Json
-
-    clitool dotnet-fable
 
 group Build
     storage: none

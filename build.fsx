@@ -94,7 +94,6 @@ Target.create "InstallClient" (fun _ ->
     printfn "Yarn version:"
     runTool yarnTool "--version" __SOURCE_DIRECTORY__
     runTool yarnTool "install --frozen-lockfile" __SOURCE_DIRECTORY__
-    try runTool yarnTool "install" piServerPath with _ -> ()
     runDotNet "restore" clientPath
 )
 
@@ -105,22 +104,21 @@ Target.create "RestoreServer" (fun _ ->
 
 Target.create "Build" (fun _ ->
     runDotNet "build" serverPath
-    runDotNet "fable webpack-cli -- --config src/Client/webpack.config.js -p" clientPath
+    runTool yarnTool "webpack-cli --config src/Client/webpack.config.js -p" clientPath
 )
 
 Target.create "Run" (fun _ ->
     let server = async {
         runDotNet "watch run" serverPath
     }
-    let client = async {
-        runDotNet "fable webpack-dev-server -- --config src/Client/webpack.config.js" clientPath
-    }
+    let fablewatch = async { runTool yarnTool "webpack-dev-server --config src/Client/webpack.config.js --port 8080" clientPath }
+
     let browser = async {
         do! Async.Sleep 5000
         openBrowser "http://localhost:8080"
     }
 
-    [ server; client; browser ]
+    [ server; fablewatch; browser ]
     |> Async.Parallel
     |> Async.RunSynchronously
     |> ignore

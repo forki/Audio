@@ -57,6 +57,45 @@ let mapBlobMusikTag (tag:Tag) = task {
     | _ -> return tag
 }
 
+
+let discoverYoutubeLink (youtubeURL:string) = task {
+    let lines = System.Collections.Generic.List<_>()
+    let proc = new Process ()
+    let startInfo = new ProcessStartInfo()
+    startInfo.FileName <- "/usr/local/bin/youtube-dl"
+    startInfo.Arguments <- sprintf " -g \"%s\"" youtubeURL
+    startInfo.UseShellExecute <- false
+    startInfo.RedirectStandardOutput <- true
+    startInfo.RedirectStandardError <- true
+    startInfo.CreateNoWindow <- true
+    proc.StartInfo <- startInfo
+
+    proc.Start() |> ignore
+
+    while not proc.StandardOutput.EndOfStream do
+        let! line = proc.StandardOutput.ReadLineAsync()
+        lines.Add line
+
+    while not proc.StandardError.EndOfStream do
+        let! line = proc.StandardError.ReadLineAsync()
+        lines.Add line
+
+    let lines = Seq.toArray lines
+    let links =
+        lines
+        |> Array.filter (fun x -> x.Contains "&mime=audio")
+
+    return youtubeURL,links
+}
+
+let mapYoutube (tag:Tag) = task {
+    match tag.Action with
+    | TagAction.PlayYoutube url ->
+        let! _,links = discoverYoutubeLink url
+        return { tag with Action = TagAction.PlayMusik links.[0] }
+    | _ -> return tag
+}
+
 let uploadEndpoint (token:string) =
     pipeline {
         set_header "Content-Type" "application/json"
@@ -138,44 +177,7 @@ let firmwareEndpoint =
     }
 
 
-let discoverYoutubeLink (youtubeURL:string) = task {
-    let lines = System.Collections.Generic.List<_>()
-    let proc = new Process ()
-    let startInfo = new ProcessStartInfo()
-    startInfo.FileName <- "/usr/local/bin/youtube-dl"
-    startInfo.Arguments <- sprintf " -g \"%s\"" youtubeURL
-    startInfo.UseShellExecute <- false
-    startInfo.RedirectStandardOutput <- true
-    startInfo.RedirectStandardError <- true
-    startInfo.CreateNoWindow <- true
-    proc.StartInfo <- startInfo
 
-    proc.Start() |> ignore
-
-    while not proc.StandardOutput.EndOfStream do
-        let! line = proc.StandardOutput.ReadLineAsync()
-        lines.Add line
-
-    while not proc.StandardError.EndOfStream do
-        let! line = proc.StandardError.ReadLineAsync()
-        lines.Add line
-
-    let lines = Seq.toArray lines
-    let links =
-        lines
-        |> Array.filter (fun x -> x.Contains "&mime=audio")
-
-    return youtubeURL,links
-}
-
-let discoverEndpoint (url) =
-    pipeline {
-        set_header "Content-Type" "application/json"
-        plug (fun next ctx -> task {
-            let! tag = discoverYoutubeLink url
-            return! setBodyFromString (sprintf "%A" tag) next ctx
-        })
-    }
 
 let tagHistoryBroadcaster = ConnectionManager()
 
@@ -193,7 +195,6 @@ let webApp =
         postf "/api/upload/%s" uploadEndpoint
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
-        get "/api/discover" (discoverEndpoint "https://www.youtube.com/watch?v=kfSlg3HtaSw")
         get "/api/latestfirmware" getLatestFirmware
         getf "/api/taghistorysocket/%s" (TagHistorySocket.openSocket tagHistoryBroadcaster)
     }

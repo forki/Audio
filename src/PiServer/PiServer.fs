@@ -48,7 +48,6 @@ type Model = {
     TagServer : string
     Volume : float
     RFID : string option
-    YoutubeLinks : Map<string,string[]>
     NodeServices : INodeServices
 }
 
@@ -63,14 +62,11 @@ type Msg =
 | DiscoverStartup
 | NewTag of Tag
 | Play of PlayList
-| PlayYoutube of string
 | NextMediaFile
 | PreviousMediaFile
 | PlayerStopped of unit
 | FinishPlaylist of unit
 | Noop of unit
-| DiscoverYoutube of string * bool
-| NewYoutubeMediaFiles of string * string [] * bool
 | Err of exn
 
 
@@ -114,7 +110,6 @@ let init nodeServices : Model * Cmd<Msg> =
       TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
       Volume = 0.5 // TODO: load from webserver
       RFID = None
-      YoutubeLinks = Map.empty
       NodeServices = nodeServices }, Cmd.ofMsg CheckFirmware
 
 let resolveRFID (model:Model,token:string) = task {
@@ -187,62 +182,6 @@ let checkFirmware (model:Model) = task {
             log.ErrorFormat("Upgrade error: {0}", exn.Message)
 }
 
-
-
-let discoverYoutubeLink (youtubeURL:string) = task {
-    log.InfoFormat("Starting youtube-dl -g {0}", youtubeURL)
-    let lines = System.Collections.Generic.List<_>()
-    let proc = new Process ()
-    let startInfo = new ProcessStartInfo()
-    startInfo.FileName <- "sudo"
-    startInfo.Arguments <- sprintf "youtube-dl -g \"%s\"" youtubeURL
-    startInfo.UseShellExecute <- false
-    startInfo.RedirectStandardOutput <- true
-    startInfo.CreateNoWindow <- true
-    proc.StartInfo <- startInfo
-
-    proc.Start() |> ignore
-    while not proc.StandardOutput.EndOfStream do
-        let! line = proc.StandardOutput.ReadLineAsync()
-        lines.Add line
-
-    let lines = Seq.toArray lines
-    let links =
-        lines
-        |> Array.filter (fun x -> x.Contains "&mime=audio")
-
-    log.InfoFormat("{0} Youtube audio links detected", links.Length)
-    return youtubeURL,links
-}
-
-let discoverAllYoutubeLinks (dispatch,model:Model) = task {
-    while true do
-        try
-            use webClient = new System.Net.WebClient()
-            let url = sprintf  @"%s/api/usertags/%s" model.TagServer model.UserID
-            let! result = webClient.DownloadStringTaskAsync(System.Uri url)
-
-            match Decode.fromString TagList.Decoder result with
-            | Error msg -> return failwith msg
-            | Ok list ->
-                let! _ =
-                    list.Tags
-                    |> Array.map (fun tag ->
-                        match tag.Action with
-                        | TagAction.PlayYoutube youtubeURL ->
-                            task {
-                                let! (youtubeURL,files) = discoverYoutubeLink youtubeURL
-                                dispatch (NewYoutubeMediaFiles (youtubeURL,files,false))
-                            }
-                        | _ -> task { return () } )
-                    |> Task.WhenAll
-                ()
-        with
-        | exn -> log.ErrorFormat("Could not discover YouTube: {0}", exn.Message)
-        do! Task.Delay (int (TimeSpan.FromHours 3.).TotalMilliseconds)
-}
-
-
 let getStartupActions (model:Model) = task {
     use webClient = new System.Net.WebClient()
     let url = sprintf @"%s/api/startup" model.TagServer
@@ -305,31 +244,8 @@ let update (msg:Msg) (model:Model) =
         | _ ->
             model, Cmd.none
 
-    | PlayYoutube youtubeURL ->
-        match model.YoutubeLinks.TryGetValue youtubeURL with
-        | true, mediaFiles ->
-            let playList : PlayList = {
-                Uri = youtubeURL
-                MediaFiles = mediaFiles
-                Position = 0
-            }
-
-            model, Cmd.ofMsg (Play playList)
-        | _ ->
-            model, Cmd.ofMsg (DiscoverYoutube (youtubeURL,true))
-
     | FinishPlaylist _ ->
         { model with PlayList = None }, Cmd.none
-
-    | DiscoverYoutube (youtubeURL,playAfterwards) ->
-        model, Cmd.ofTask discoverYoutubeLink youtubeURL (fun (youtubeURL,files) -> NewYoutubeMediaFiles (youtubeURL,files,playAfterwards)) Err
-
-    | NewYoutubeMediaFiles (youtubeURL,files,playAfterwards) ->
-        let model = { model with YoutubeLinks = model.YoutubeLinks |> Map.add youtubeURL files }
-        if playAfterwards then
-            model, Cmd.ofMsg (PlayYoutube youtubeURL)
-        else
-            model, Cmd.none
 
     | CheckFirmware ->
         model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
@@ -365,8 +281,9 @@ let update (msg:Msg) (model:Model) =
                     Position = 0
                 }
                 model, Cmd.batch [Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]
-            | TagAction.PlayYoutube youtubeURL ->
-                model, Cmd.batch [Cmd.ofMsg (PlayYoutube youtubeURL); Cmd.ofMsg (ExecuteActions rest) ]
+            | TagAction.PlayYoutube _ ->
+                log.Error "Youtube links need to be converted to direct links by the tag server"
+                model, Cmd.ofMsg (ExecuteActions rest)
             | TagAction.PlayBlobMusik _ ->
                 log.Error "Blobs links need to be converted to direct links by the tag server"
                 model, Cmd.ofMsg (ExecuteActions rest)

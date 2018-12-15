@@ -163,7 +163,7 @@ let discoverYoutubeLink (youtubeURL:string) = task {
     let lines = Seq.toArray lines
     let links =
         lines
-       // |> Array.filter (fun x -> x.Contains "&mime=audio")
+        |> Array.filter (fun x -> x.Contains "&mime=audio")
 
     return youtubeURL,links
 }

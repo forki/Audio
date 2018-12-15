@@ -35,11 +35,6 @@ rm dotnet.tar.gz
 sudo ln -s /opt/dotnet/dotnet /usr/local/bin
 log_action_end_msg $?
 
-log_action_begin_msg "Download youtube-dl "
-sudo curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl
-sudo chmod a+rx /usr/local/bin/youtube-dl
-log_action_end_msg $?
-
 if [ -e  $SCRIPTROOT/$PROJECTNAME ]; then
     if [ ! -e $DEFAULTS -a $SCRIPTROOT/$PROJECTNAME.defaults ]; then
         echo DAEMONHOME=$DAEMONHOME > $DEFAULTS

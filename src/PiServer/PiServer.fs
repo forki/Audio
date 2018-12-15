@@ -253,8 +253,6 @@ let getStartupActions (model:Model) = task {
     | Ok actions -> return actions
 }
 
-
-
 let update (msg:Msg) (model:Model) =
     match msg with
     | VolumeUp ->

@@ -150,14 +150,19 @@ let discoverYoutubeLink (youtubeURL:string) = task {
     proc.StartInfo <- startInfo
 
     proc.Start() |> ignore
+
     while not proc.StandardOutput.EndOfStream do
         let! line = proc.StandardOutput.ReadLineAsync()
+        lines.Add line
+
+    while not proc.StandardError.EndOfStream do
+        let! line = proc.StandardError.ReadLineAsync()
         lines.Add line
 
     let lines = Seq.toArray lines
     let links =
         lines
-        |> Array.filter (fun x -> x.Contains "&mime=audio")
+       // |> Array.filter (fun x -> x.Contains "&mime=audio")
 
     return youtubeURL,links
 }

@@ -168,7 +168,7 @@ let saveLinks (tag:Tag) (urls:string []) =
         entity.Properties.["Url"] <- EntityProperty.GeneratePropertyForString url
         batch.InsertOrReplace entity
         i <- i + 1
-    tagsTable.ExecuteBatchAsync batch
+    linksTable.ExecuteBatchAsync batch
 
 let saveRequest (userID:string) (token:string) =
     let entity = DynamicTableEntity()

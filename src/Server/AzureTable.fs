@@ -5,11 +5,6 @@ open Microsoft.WindowsAzure.Storage.Table
 open System.Threading.Tasks
 open FSharp.Control.Tasks.ContextInsensitive
 
-type AzureConnection =
-    | AzureConnection of string
-    member this.Connect() =
-        match this with
-        | AzureConnection connectionString -> CloudStorageAccount.Parse connectionString
 
 let getTable tableName (connection: CloudStorageAccount) =
     async {
@@ -126,15 +121,21 @@ let storageConnectionString =
     else
         str
 
-let connection = (AzureConnection storageConnectionString).Connect()
+let connection = CloudStorageAccount.Parse storageConnectionString
 
 let tagsTable = getTable "tags" connection
+let linksTable = getTable "links" connection
 let requestsTable = getTable "requests" connection
 
 
 open ServerCore.Domain
 open Thoth.Json.Net
 
+
+let mapLink (entity: DynamicTableEntity) : Link =
+    { Token = entity.PartitionKey
+      Order = int entity.RowKey
+      Url = getStringProperty "Url" entity }
 
 let mapTag (entity: DynamicTableEntity) : Tag =
     { Token = entity.RowKey
@@ -155,6 +156,19 @@ let saveTag (userID:string) (tag:Tag) =
     entity.Properties.["Object"] <- EntityProperty.GeneratePropertyForString tag.Object
     let operation = TableOperation.InsertOrReplace entity
     tagsTable.ExecuteAsync operation
+
+
+let saveLinks (tag:Tag) (urls:string []) =
+    let batch = TableBatchOperation()
+    let mutable i = 0
+    for url in urls do
+        let entity = DynamicTableEntity()
+        entity.PartitionKey <- tag.Token
+        entity.RowKey <- string i
+        entity.Properties.["Url"] <- EntityProperty.GeneratePropertyForString url
+        batch.InsertOrReplace entity
+        i <- i + 1
+    tagsTable.ExecuteBatchAsync batch
 
 let saveRequest (userID:string) (token:string) =
     let entity = DynamicTableEntity()
@@ -189,4 +203,37 @@ let getAllTagsForUser (userID:string) = task {
     let! results = getResults null
 
     return [| for result in results -> mapTag result |]
+}
+
+let getAllTags () = task {
+    let rec getResults token = task {
+        let! result = tagsTable.ExecuteQuerySegmentedAsync(TableQuery(), token)
+        let token = result.ContinuationToken
+        let result = result |> Seq.toList
+        if isNull token then
+            return result
+        else
+            let! others = getResults token
+            return result @ others }
+
+    let! results = getResults null
+
+    return [| for result in results -> mapTag result |]
+}
+
+let getAllLinksForTag (tagToken:string) = task {
+    let rec getResults token = task {
+        let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, tagToken)
+        let! result = linksTable.ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
+        let token = result.ContinuationToken
+        let result = result |> Seq.toList
+        if isNull token then
+            return result
+        else
+            let! others = getResults token
+            return result @ others }
+
+    let! results = getResults null
+
+    return [| for result in results -> mapLink result |]
 }

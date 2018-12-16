@@ -66,6 +66,12 @@ type TagAction =
                 |> Decode.map TagAction.PlayBlobMusik
         ]
 
+type Link = {
+    Token : string
+    Url : string
+    Order : int
+}
+
 type Tag =
     { Token : string
       Object : string

@@ -13,6 +13,7 @@ open System.Threading.Tasks
 open Giraffe.WebSocket
 open Microsoft.AspNetCore.Builder
 open System.Diagnostics
+open ServerCode.Storage.AzureTable
 
 #if DEBUG
 let publicPath = Path.GetFullPath "../Client/public"
@@ -90,8 +91,9 @@ let discoverYoutubeLink (youtubeURL:string) = task {
 
 let mapYoutube (tag:Tag) = task {
     match tag.Action with
-    | TagAction.PlayYoutube url ->
-        let! _,links = discoverYoutubeLink url
+    | TagAction.PlayYoutube _ ->
+        let! links = getAllLinksForTag tag.Token
+        let links = links |> Array.map (fun l -> l.Url)
         return { tag with Action = TagAction.PlayMusik links }
     | _ -> return tag
 }
@@ -177,9 +179,6 @@ let firmwareEndpoint =
         })
     }
 
-
-
-
 let tagHistoryBroadcaster = ConnectionManager()
 
 let t = task {
@@ -216,6 +215,20 @@ let app = application {
     service_config configureSerialization
     use_gzip
     app_config configureApp
+}
+
+let discoverTask = task {
+    while true do
+        let! tags = getAllTags()
+        for tag in tags do
+            match tag.Action with
+            | TagAction.PlayYoutube url ->
+                let! _,urls = discoverYoutubeLink url
+                let! _ = saveLinks tag urls
+                ()
+            | _ -> ()
+        do! Task.Delay (1000 * 60 * 20)
+    return ()
 }
 
 run app

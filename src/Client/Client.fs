@@ -242,7 +242,9 @@ let tagsTable (model : Model) (dispatch : Msg -> unit) =
                         tr [ Id tag.Token ] [
                             yield td [ Title tag.Token ] [ str tag.Object ]
                             match tag.Action with
-                            | TagAction.PlayMusik url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
+                            | TagAction.PlayMusik urls -> 
+                                for url in urls do
+                                    yield td [ ] [ a [Href url ] [str tag.Description ] ]
                             | TagAction.PlayYoutube url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
                             | _ -> yield td [ Title (tag.Action.ToString()) ] [ str tag.Description ]
                         ]

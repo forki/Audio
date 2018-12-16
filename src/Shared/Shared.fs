@@ -27,7 +27,7 @@ type Firmware =
 type TagAction =
 | UnknownTag
 | StopMusik
-| PlayMusik of string
+| PlayMusik of string []
 | PlayYoutube of string
 | PlayBlobMusik of System.Guid
 
@@ -41,9 +41,9 @@ type TagAction =
             Encode.object [
                 "StopMusik", Encode.nil
             ]
-        | TagAction.PlayMusik url ->
+        | TagAction.PlayMusik urls ->
             Encode.object [
-                "PlayMusik", Encode.string url
+                "PlayMusik", Encode.array (Array.map Encode.string urls)
             ]
         | TagAction.PlayYoutube url ->
             Encode.object [
@@ -58,7 +58,7 @@ type TagAction =
         Decode.oneOf [
             Decode.field "UnknownTag" (Decode.succeed TagAction.UnknownTag)
             Decode.field "StopMusik" (Decode.succeed TagAction.StopMusik)
-            Decode.field "PlayMusik" Decode.string
+            Decode.field "PlayMusik" (Decode.array Decode.string)
                 |> Decode.map TagAction.PlayMusik
             Decode.field "PlayYoutube" Decode.string
                 |> Decode.map TagAction.PlayYoutube

@@ -36,7 +36,6 @@ let log =
 
 
 type PlayList = {
-    Uri : string
     MediaFiles: string []
     Position : int
 }
@@ -214,7 +213,7 @@ let update (msg:Msg) (model:Model) =
 
     | Play playList ->
         let model = { model with PlayList = Some playList }
-        log.InfoFormat("Playing new PlayList: {0}: Files: {1}", playList.Uri, playList.MediaFiles.Length)
+        log.InfoFormat("Playing new PlayList with {0} files", playList.MediaFiles.Length)
         model, Cmd.none
 
     | PlayerStopped _ ->
@@ -274,10 +273,9 @@ let update (msg:Msg) (model:Model) =
                 model, Cmd.ofMsg (ExecuteActions rest)
             | TagAction.StopMusik ->
                 model, Cmd.batch [Cmd.ofMsg (FinishPlaylist()); Cmd.ofMsg (ExecuteActions rest) ]
-            | TagAction.PlayMusik url ->
+            | TagAction.PlayMusik urls ->
                 let playList : PlayList = {
-                    Uri = url
-                    MediaFiles = [| url |]
+                    MediaFiles = urls
                     Position = 0
                 }
                 model, Cmd.batch [Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]

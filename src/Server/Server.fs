@@ -53,7 +53,7 @@ let mapBlobMusikTag (tag:Tag) = task {
     match tag.Action with
     | TagAction.PlayBlobMusik mediaID ->
         let! sas = getSASMediaLink(mediaID.ToString())
-        return { tag with Action = TagAction.PlayMusik sas }
+        return { tag with Action = TagAction.PlayMusik [| sas |] }
     | _ -> return tag
 }
 
@@ -92,7 +92,7 @@ let mapYoutube (tag:Tag) = task {
     match tag.Action with
     | TagAction.PlayYoutube url ->
         let! _,links = discoverYoutubeLink url
-        return { tag with Action = TagAction.PlayMusik links.[0] }
+        return { tag with Action = TagAction.PlayMusik links }
     | _ -> return tag
 }
 
@@ -148,7 +148,7 @@ let startupEndpoint =
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
-            let actions = [TagAction.PlayMusik sas]
+            let actions = [ TagAction.PlayMusik [| sas |] ]
 
             let txt =
                 actions

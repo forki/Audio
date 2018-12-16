@@ -29,7 +29,7 @@ type TagAction =
 | StopMusik
 | PlayMusik of string []
 | PlayYoutube of string
-| PlayBlobMusik of System.Guid
+| PlayBlobMusik of System.Guid []
 
     static member Encoder (action : TagAction) =
         match action with
@@ -49,9 +49,9 @@ type TagAction =
             Encode.object [
                 "PlayYoutube", Encode.string url
             ]
-        | TagAction.PlayBlobMusik url ->
+        | TagAction.PlayBlobMusik urls ->
             Encode.object [
-                "PlayBlobMusik", Encode.guid url
+                "PlayBlobMusik", Encode.array (Array.map Encode.guid urls)
             ]
 
     static member Decoder =
@@ -62,7 +62,7 @@ type TagAction =
                 |> Decode.map TagAction.PlayMusik
             Decode.field "PlayYoutube" Decode.string
                 |> Decode.map TagAction.PlayYoutube
-            Decode.field "PlayBlobMusik" Decode.guid
+            Decode.field "PlayBlobMusik" (Decode.array Decode.guid)
                 |> Decode.map TagAction.PlayBlobMusik
         ]
 

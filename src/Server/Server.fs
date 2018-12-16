@@ -47,14 +47,17 @@ let uploadMusik (stream:Stream) = task {
     let blockBlob = mediaContainer.GetBlockBlobReference(mediaID.ToString())
     blockBlob.Properties.ContentType <- "audio/mpeg"
     do! blockBlob.UploadFromStreamAsync(stream)
-    return TagAction.PlayBlobMusik mediaID
+    return TagAction.PlayBlobMusik [|mediaID|]
 }
 
 let mapBlobMusikTag (tag:Tag) = task {
     match tag.Action with
-    | TagAction.PlayBlobMusik mediaID ->
-        let! sas = getSASMediaLink(mediaID.ToString())
-        return { tag with Action = TagAction.PlayMusik [| sas |] }
+    | TagAction.PlayBlobMusik mediaIDs ->
+        let list = System.Collections.Generic.List<_>() 
+        for mediaID in mediaIDs do
+            let! sas = getSASMediaLink(mediaID.ToString())
+            list.Add sas
+        return { tag with Action = TagAction.PlayMusik(Seq.toArray list) }
     | _ -> return tag
 }
 

@@ -113,7 +113,7 @@ let uploadEndpoint (token:string) =
                 let file = form.Files.[0]
                 use stream = file.OpenReadStream()
                 let! tagAction = uploadMusik stream
-                let tag = { Token = System.Guid.NewGuid().ToString(); Action = tagAction; Description = ""; Object = "" }
+                let tag : Tag = { Token = System.Guid.NewGuid().ToString(); Action = tagAction; Description = ""; Object = "" }
                 let! _saved = AzureTable.saveTag token tag
                 let! tag = mapBlobMusikTag tag
                 let txt = Tag.Encoder tag |> Encode.toString 0
@@ -133,7 +133,13 @@ let tagEndpoint (userID,token) =
                 | _ -> task { return { Token = token; Action = TagAction.UnknownTag; Description = ""; Object = "" } }
 
             let! tag = tag |> mapYoutube
-            let txt = Tag.Encoder tag |> Encode.toString 0
+            let tag : TagForBox = { 
+                Token = tag.Token
+                Object = tag.Object
+                Description = tag.Description
+                Action = TagActionForBox.GetFromTagAction tag.Action } 
+
+            let txt = TagForBox.Encoder tag |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })
     }
@@ -153,12 +159,11 @@ let startupEndpoint =
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
-            let actions = [ TagAction.PlayMusik [| sas |] ]
+            let action = TagActionForBox.PlayMusik [| sas |]
 
             let txt =
-                actions
-                |> List.map TagAction.Encoder
-                |> Encode.list
+                action
+                |> TagActionForBox.Encoder
                 |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })

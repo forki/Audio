@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "0.16.23"
+let Version = "0.16.24"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 0.16.23 - 2018-12-15
+## 0.16.24 - 2018-12-18
 * Update to ASP.NET 2.2
 
 ## 0.15.11 - 2018-11-05
@@ -25,7 +25,7 @@ let Notes = """
 ## 0.11.21 - 2018-10-23
 * Next/Previous buttons
 
-## 0.10.37 - 2018-10-23<>
+## 0.10.37 - 2018-10-23
 * Use better UI
 
 ## 0.9.7 - 2018-10-18

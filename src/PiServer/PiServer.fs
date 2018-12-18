@@ -56,10 +56,10 @@ type Msg =
 | NewRFID of string
 | CheckFirmware
 | FirmwareUpToDate of unit
-| ExecuteActions of TagAction list
+| ExecuteAction of TagActionForBox
 | RFIDRemoved
 | DiscoverStartup
-| NewTag of Tag
+| NewTag of TagForBox
 | Play of PlayList
 | NextMediaFile
 | PreviousMediaFile
@@ -116,7 +116,7 @@ let resolveRFID (model:Model,token:string) = task {
     let url = sprintf @"%s/api/tags/%s/%s" model.TagServer model.UserID token
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
-    match Decode.fromString Tag.Decoder result with
+    match Decode.fromString TagForBox.Decoder result with
     | Error msg -> return failwith msg
     | Ok tag -> return tag
 }
@@ -181,12 +181,12 @@ let checkFirmware (model:Model) = task {
             log.ErrorFormat("Upgrade error: {0}", exn.Message)
 }
 
-let getStartupActions (model:Model) = task {
+let getStartupAction (model:Model) = task {
     use webClient = new System.Net.WebClient()
     let url = sprintf @"%s/api/startup" model.TagServer
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
-    match Decode.fromString (Decode.list TagAction.Decoder) result with
+    match Decode.fromString (TagActionForBox.Decoder) result with
     | Error msg -> return failwith msg
     | Ok actions -> return actions
 }
@@ -209,7 +209,7 @@ let update (msg:Msg) (model:Model) =
 
     | NewTag tag ->
         log.InfoFormat("Got new tag from server: {0}", tag)
-        model, Cmd.ofMsg (ExecuteActions [tag.Action])
+        model, Cmd.ofMsg (ExecuteAction tag.Action)
 
     | Play playList ->
         let model = { model with PlayList = Some playList }
@@ -253,7 +253,7 @@ let update (msg:Msg) (model:Model) =
         model, Cmd.none
 
     | DiscoverStartup ->
-        model, Cmd.ofTask getStartupActions model ExecuteActions Err
+        model, Cmd.ofTask getStartupAction model ExecuteAction Err
 
     | FirmwareUpToDate _ ->
         log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)
@@ -264,29 +264,19 @@ let update (msg:Msg) (model:Model) =
                 [fun dispatch -> rfidLoop (dispatch,model.NodeServices) |> Async.AwaitTask |> Async.StartImmediate ]
             ]
 
-    | ExecuteActions actions ->
-        match actions with
-        | action::rest ->
-            match action with
-            | TagAction.UnknownTag ->
-                log.Warn "Unknown Tag"
-                model, Cmd.ofMsg (ExecuteActions rest)
-            | TagAction.StopMusik ->
-                model, Cmd.batch [Cmd.ofMsg (FinishPlaylist()); Cmd.ofMsg (ExecuteActions rest) ]
-            | TagAction.PlayMusik urls ->
-                let playList : PlayList = {
-                    MediaFiles = urls
-                    Position = 0
-                }
-                model, Cmd.batch [Cmd.ofMsg (Play playList); Cmd.ofMsg (ExecuteActions rest) ]
-            | TagAction.PlayYoutube _ ->
-                log.Error "Youtube links need to be converted to direct links by the tag server"
-                model, Cmd.ofMsg (ExecuteActions rest)
-            | TagAction.PlayBlobMusik _ ->
-                log.Error "Blobs links need to be converted to direct links by the tag server"
-                model, Cmd.ofMsg (ExecuteActions rest)
-        | _ -> model, Cmd.none
-
+    | ExecuteAction action ->
+        match action with
+        | TagActionForBox.UnknownTag ->
+            log.Warn "Unknown Tag"
+            model, Cmd.none
+        | TagActionForBox.StopMusik ->
+            model, Cmd.ofMsg (FinishPlaylist())
+        | TagActionForBox.PlayMusik urls ->
+            let playList : PlayList = {
+                MediaFiles = urls
+                Position = 0
+            }
+            model, Cmd.batch [Cmd.ofMsg (Play playList) ]        
     | Err exn ->
         log.ErrorFormat("Error: {0}", exn.Message)
         model, Cmd.none

@@ -63,7 +63,7 @@ type Msg =
 | Play of PlayList
 | NextMediaFile
 | PreviousMediaFile
-| PlayerStopped of unit
+| PlayerStopped of string
 | FinishPlaylist of unit
 | Noop of unit
 | Err of exn
@@ -216,8 +216,20 @@ let update (msg:Msg) (model:Model) =
         log.InfoFormat("Playing new PlayList with {0} files", playList.MediaFiles.Length)
         model, Cmd.none
 
-    | PlayerStopped _ ->
-        model, Cmd.ofMsg NextMediaFile
+    | PlayerStopped file ->
+        match model.PlayList with
+        | Some playList ->
+            try
+                let current = playList.MediaFiles.[playList.Position]
+                if current = file then
+                    model,Cmd.ofMsg NextMediaFile
+                else
+                    model,Cmd.none
+            with
+            | _ ->
+                model,Cmd.none
+        | _ ->
+            model,Cmd.none
 
     | NextMediaFile ->
         match model.PlayList with
@@ -315,7 +327,7 @@ let view (model:Model) dispatch : Audio =
 let app =
     Program.mkProgram init update view
     |> Program.withTrace (fun msg _model -> log.InfoFormat("{0}", msg))
-    |> Program.withAudio (PlayerStopped())
+    |> Program.withAudio (fun file -> PlayerStopped file)
 
 
 Program.runWith nodeServices app

@@ -38,31 +38,25 @@ dbus-send --print-reply --session --reply-timeout=500 \
     p.StartInfo <- startInfo
     p.Start() |> ignore
 
-
-
-
 [<RequireQualifiedAccess>]
 module Program =
 
     let withAudio stoppedMsg (program:Elmish.Program<_,_,_,_>) =
         let mutable lastView = None
-        let mutable activelyKilled = false
 
-        let isActivelyKilled dispatch _args = 
-            if not activelyKilled then
-                dispatch stoppedMsg
+        let sendMsg file dispatch _args = 
+            dispatch (stoppedMsg file)
 
         let play dispatch file volume =
             let p = new System.Diagnostics.Process()
             p.EnableRaisingEvents <- true
-            p.Exited.Add (isActivelyKilled dispatch)
+            p.Exited.Add (sendMsg file dispatch)
 
             let startInfo = System.Diagnostics.ProcessStartInfo()
             startInfo.FileName <- "omxplayer"
             let volume = int (System.Math.Round(2000. * System.Math.Log10 volume))
             startInfo.Arguments <- sprintf "--vol %d " volume + file
             p.StartInfo <- startInfo
-            activelyKilled <- false
             p.Start() |> ignore
 
         let killMusikPlayer() = task {
@@ -73,10 +67,8 @@ module Program =
                         let startInfo = System.Diagnostics.ProcessStartInfo()
                         startInfo.FileName <- "sudo"
                         startInfo.Arguments <- "kill -9 " + p.Id.ToString()
-                        killP.StartInfo <- startInfo                        
-                        activelyKilled <- true
-                        let _ = killP.Start()
-
+                        killP.StartInfo <- startInfo
+                        killP.Start() |> ignore
                         while not p.HasExited do
                             do! Task.Delay 10
                     with _ -> ()

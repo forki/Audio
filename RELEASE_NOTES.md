@@ -1,5 +1,8 @@
 # Release Notes
 
+## 1.0.0 - 2018-12-18
+* Christmas edition
+
 ## 0.16.25 - 2018-12-18
 * Update to ASP.NET 2.2
 

@@ -161,7 +161,7 @@ let saveTag (userID:string) (tag:Tag) =
     tagsTable.ExecuteAsync operation
 
 
-let saveLinks (tag:Tag) (urls:string []) =
+let saveLinks (tag:Tag) (urls:string []) = task {
     let batch = TableBatchOperation()
     let mutable i = 0
     for url in urls do
@@ -171,7 +171,10 @@ let saveLinks (tag:Tag) (urls:string []) =
         entity.Properties.["Url"] <- EntityProperty.GeneratePropertyForString url
         batch.InsertOrReplace entity
         i <- i + 1
-    linksTable.ExecuteBatchAsync batch
+    if i > 0 then
+        let! _ = linksTable.ExecuteBatchAsync batch
+        ()
+}
 
 let saveRequest (userID:string) (token:string) =
     let entity = DynamicTableEntity()

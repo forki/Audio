@@ -199,7 +199,7 @@ let youtubeEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let! _,urls = discoverYoutubeLink "https://www.youtube.com/watch?v=n2FHn3B0K4U"
+            let! _,urls = discoverYoutubeLink "https://www.youtube.com/watch?v=2zCtErDjP2U"
             let txt = sprintf "%A" urls
             return! setBodyFromString txt next ctx
         })

@@ -273,6 +273,4 @@ let discoverTask = task {
     return ()
 }
 
-discoverTask.Start()
-
 run app

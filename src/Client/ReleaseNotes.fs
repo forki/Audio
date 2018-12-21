@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "1.0.0"
+let Version = "1.0.3"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 1.0.0 - 2018-12-18
+## 1.0.3 - 2018-12-21
 * Christmas edition
 
 ## 0.16.25 - 2018-12-18

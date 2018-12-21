@@ -85,11 +85,7 @@ let discoverYoutubeLink (youtubeURL:string) = task {
         lines.Add line
 
     let lines = Seq.toArray lines
-    let links =
-        lines
-        |> Array.filter (fun x -> x.Contains "&mime=audio")
-
-    return youtubeURL,links
+    return youtubeURL,lines
 }
 
 let mapYoutube (tag:Tag) = task {
@@ -113,7 +109,12 @@ let uploadEndpoint (token:string) =
                 let file = form.Files.[0]
                 use stream = file.OpenReadStream()
                 let! tagAction = uploadMusik stream
-                let tag : Tag = { Token = System.Guid.NewGuid().ToString(); Action = tagAction; Description = ""; Object = "" }
+                let tag : Tag = { 
+                    Token = System.Guid.NewGuid().ToString()
+                    Action = tagAction
+                    Description = ""
+                    LastVerified = DateTimeOffset.UtcNow
+                    Object = "" }
                 let! _saved = AzureTable.saveTag token tag
                 let! tag = mapBlobMusikTag tag
                 let txt = Tag.Encoder tag |> Encode.toString 0
@@ -130,7 +131,14 @@ let tagEndpoint (userID,token) =
             let! tag =
                 match tag with
                 | Some t -> t |> mapBlobMusikTag
-                | _ -> task { return { Token = token; Action = TagAction.UnknownTag; Description = ""; Object = "" } }
+                | _ -> 
+                    let t = { 
+                        Token = token
+                        Action = TagAction.UnknownTag
+                        LastVerified = DateTimeOffset.MinValue
+                        Description = ""
+                        Object = "" }
+                    task { return t }
 
             let! tag = tag |> mapYoutube
             let tag : TagForBox = { 
@@ -187,6 +195,16 @@ let firmwareEndpoint =
         })
     }
 
+let youtubeEndpoint =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let! _,urls = discoverYoutubeLink "https://www.youtube.com/watch?v=n2FHn3B0K4U"
+            let txt = sprintf "%A" urls
+            return! setBodyFromString txt next ctx
+        })
+    }
+
 let tagHistoryBroadcaster = ConnectionManager()
 
 let t = task {
@@ -203,6 +221,7 @@ let webApp =
         postf "/api/upload/%s" uploadEndpoint
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
+        get "/api/youtube" youtubeEndpoint
         get "/api/latestfirmware" getLatestFirmware
         getf "/api/taghistorysocket/%s" (TagHistorySocket.openSocket tagHistoryBroadcaster)
     }
@@ -232,6 +251,9 @@ let discoverTask = task {
             match tag.Action with
             | TagAction.PlayYoutube url ->
                 let! _,urls = discoverYoutubeLink url
+                let urls =
+                    urls
+                    |> Array.filter (fun x -> x.Contains "&mime=audio")
                 let! _ = saveLinks tag urls
                 ()
             | _ -> ()

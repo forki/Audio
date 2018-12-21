@@ -130,6 +130,7 @@ let requestsTable = getTable "requests" connection
 
 open ServerCore.Domain
 open Thoth.Json.Net
+open System
 
 
 let mapLink (entity: DynamicTableEntity) : Link =
@@ -141,6 +142,7 @@ let mapTag (entity: DynamicTableEntity) : Tag =
     { Token = entity.RowKey
       Description = getStringProperty "Description" entity
       Object = getStringProperty "Object" entity
+      LastVerified = getOptionalDateTimeOffsetProperty "LastVerified" entity |> Option.defaultValue DateTimeOffset.MinValue
       Action =
         match Decode.fromString TagAction.Decoder (getStringProperty "Action" entity) with
         | Error msg -> failwith msg
@@ -154,6 +156,7 @@ let saveTag (userID:string) (tag:Tag) =
     entity.Properties.["Action"] <- EntityProperty.GeneratePropertyForString (TagAction.Encoder tag.Action |> Encode.toString 0)
     entity.Properties.["Description"] <- EntityProperty.GeneratePropertyForString tag.Description
     entity.Properties.["Object"] <- EntityProperty.GeneratePropertyForString tag.Object
+    entity.Properties.["LastVerified"] <- EntityProperty.GeneratePropertyForDateTimeOffset(Nullable tag.LastVerified)
     let operation = TableOperation.InsertOrReplace entity
     tagsTable.ExecuteAsync operation
 

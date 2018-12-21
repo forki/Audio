@@ -1,5 +1,7 @@
 namespace ServerCore.Domain
 
+open System
+
 #if FABLE_COMPILER
 open Thoth.Json
 #else
@@ -113,6 +115,7 @@ type Tag =
     { Token : string
       Object : string
       Description : string
+      LastVerified : DateTimeOffset
       Action : TagAction }
 
     static member Encoder (tag : Tag) =
@@ -120,6 +123,7 @@ type Tag =
             "Token", Encode.string tag.Token
             "Description", Encode.string tag.Description
             "Object", Encode.string tag.Object
+            "LastVerified", Encode.datetimeOffset tag.LastVerified
             "Action", TagAction.Encoder tag.Action
         ]
 
@@ -128,6 +132,9 @@ type Tag =
             { Token = get.Required.Field "Token" Decode.string
               Object = get.Required.Field "Object" Decode.string
               Description = get.Required.Field "Description" Decode.string
+              LastVerified = 
+                    get.Optional.Field "LastVerified" Decode.datetimeOffset 
+                    |> Option.defaultValue DateTimeOffset.MinValue
               Action = get.Required.Field "Action" TagAction.Decoder }
         )
 

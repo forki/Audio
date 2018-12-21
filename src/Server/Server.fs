@@ -199,6 +199,18 @@ let youtubeEndpoint =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
+            
+            let! tags = getAllTags()
+            for tag in tags do
+                match tag.Action with
+                | TagAction.PlayYoutube url ->
+                    let! _,urls = discoverYoutubeLink url
+                    let urls =
+                        urls
+                        |> Array.filter (fun x -> x.Contains "&mime=audio")
+                    let! _ = saveLinks tag urls
+                    ()
+                | _ -> ()
             let! _,urls = discoverYoutubeLink "https://www.youtube.com/watch?v=DeTePthFfDY"
             let txt = sprintf "%A" urls
             return! setBodyFromString txt next ctx
@@ -260,5 +272,7 @@ let discoverTask = task {
         do! Task.Delay (1000 * 60 * 20)
     return ()
 }
+
+discoverTask.Start()
 
 run app

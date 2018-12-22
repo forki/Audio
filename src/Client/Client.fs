@@ -205,8 +205,6 @@ let navMenu =
         [ Navbar.End.div [ ]
             [ Navbar.Item.a [ ]
                 [ str "Home" ]
-              Navbar.Item.a [ ]
-                [ str "Examples" ]
               Navbar.Item.a [ Navbar.Item.Option.Props [Href "https://github.com/forki/Audio#installation"]]
                 [ str "Documentation" ]] ]
 

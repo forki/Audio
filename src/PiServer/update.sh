@@ -2,7 +2,6 @@
 
 . /lib/lsb/init-functions
 
-DOTNETREQ=2.1.5
 SCRIPTROOT=`dirname "$0"`
 PROJECTNAME=PiServer
 DEFAULTS=/etc/default/$PROJECTNAME

@@ -14,6 +14,7 @@ open System.Reflection
 open GeneralIO
 open Elmish
 open Elmish.Audio
+open System.Net.NetworkInformation
 
 let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
 
@@ -101,11 +102,19 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
                         waiting <- false
 }
 
+let getMACAddress() =
+    let firstMacAddress = 
+        NetworkInterface.GetAllNetworkInterfaces()
+        |> Seq.filter (fun nic -> nic.OperationalStatus = OperationalStatus.Up && nic.NetworkInterfaceType <> NetworkInterfaceType.Loopback)
+        |> Seq.map (fun nic -> nic.GetPhysicalAddress().ToString())
+        |> Seq.tryHead
+    firstMacAddress
+    |> Option.defaultValue "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
 
 let init nodeServices : Model * Cmd<Msg> =
     { PlayList = None
       FirmwareUpdateInterval = TimeSpan.FromHours 1.
-      UserID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
+      UserID = getMACAddress()
       TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
       Volume = 0.5 // TODO: load from webserver
       RFID = None

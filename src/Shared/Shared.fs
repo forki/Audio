@@ -116,12 +116,14 @@ type Tag =
       Object : string
       Description : string
       LastVerified : DateTimeOffset
+      UserID : string
       Action : TagAction }
 
     static member Encoder (tag : Tag) =
         Encode.object [
             "Token", Encode.string tag.Token
             "Description", Encode.string tag.Description
+            "UserID", Encode.string tag.UserID
             "Object", Encode.string tag.Object
             "LastVerified", Encode.datetimeOffset tag.LastVerified
             "Action", TagAction.Encoder tag.Action
@@ -132,6 +134,7 @@ type Tag =
             { Token = get.Required.Field "Token" Decode.string
               Object = get.Required.Field "Object" Decode.string
               Description = get.Required.Field "Description" Decode.string
+              UserID = get.Required.Field "UserID" Decode.string
               LastVerified = 
                     get.Optional.Field "LastVerified" Decode.datetimeOffset 
                     |> Option.defaultValue DateTimeOffset.MinValue

@@ -139,7 +139,8 @@ let mapLink (entity: DynamicTableEntity) : Link =
       Url = getStringProperty "Url" entity }
 
 let mapTag (entity: DynamicTableEntity) : Tag =
-    { Token = entity.RowKey
+    { UserID = entity.PartitionKey
+      Token = entity.RowKey
       Description = getStringProperty "Description" entity
       Object = getStringProperty "Object" entity
       LastVerified = getOptionalDateTimeOffsetProperty "LastVerified" entity |> Option.defaultValue DateTimeOffset.MinValue
@@ -149,9 +150,9 @@ let mapTag (entity: DynamicTableEntity) : Tag =
         | Ok action -> action }
 
 
-let saveTag (userID:string) (tag:Tag) =
+let saveTag (tag:Tag) =
     let entity = DynamicTableEntity()
-    entity.PartitionKey <- userID
+    entity.PartitionKey <- tag.UserID
     entity.RowKey <- tag.Token
     entity.Properties.["Action"] <- EntityProperty.GeneratePropertyForString (TagAction.Encoder tag.Action |> Encode.toString 0)
     entity.Properties.["Description"] <- EntityProperty.GeneratePropertyForString tag.Description

@@ -114,8 +114,9 @@ let uploadEndpoint (token:string) =
                     Action = tagAction
                     Description = ""
                     LastVerified = DateTimeOffset.UtcNow
+                    UserID = "temp"
                     Object = "" }
-                let! _saved = AzureTable.saveTag token tag
+                let! _saved = AzureTable.saveTag tag
                 let! tag = mapBlobMusikTag tag
                 let txt = Tag.Encoder tag |> Encode.toString 0
                 return! setBodyFromString txt next ctx
@@ -134,6 +135,7 @@ let tagEndpoint (userID,token) =
                 | _ -> 
                     let t = { 
                         Token = token
+                        UserID = userID
                         Action = TagAction.UnknownTag
                         LastVerified = DateTimeOffset.MinValue
                         Description = ""
@@ -195,13 +197,11 @@ let firmwareEndpoint =
         })
     }
 
-let youtubeEndpoint =
-    pipeline {
-        set_header "Content-Type" "application/json"
-        plug (fun next ctx -> task {
-            
-            let! tags = getAllTags()
-            for tag in tags do
+let discoverYoutube() = task {
+    try
+        let! tags = getAllTags()
+        for tag in tags do
+            try
                 match tag.Action with
                 | TagAction.PlayYoutube url ->
                     let! _,urls = discoverYoutubeLink url
@@ -209,8 +209,20 @@ let youtubeEndpoint =
                         urls
                         |> Array.filter (fun x -> x.Contains "&mime=audio")
                     let! _ = saveLinks tag urls
+                    let! _ = saveTag { tag with LastVerified = DateTimeOffset.UtcNow }
                     ()
                 | _ -> ()
+            with
+            | _ -> ()
+    with
+    | _ -> ()
+}
+
+let youtubeEndpoint =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            do! discoverYoutube()
             let! _,urls = discoverYoutubeLink "https://www.youtube.com/watch?v=DeTePthFfDY"
             let txt = sprintf "%A" urls
             return! setBodyFromString txt next ctx
@@ -242,7 +254,6 @@ let configureSerialization (services:IServiceCollection) =
     services
 
 
-
 let configureApp (app : IApplicationBuilder) =
     app.UseWebSockets(Giraffe.WebSocket.DefaultWebSocketOptions)
 
@@ -258,17 +269,7 @@ let app = application {
 
 let discoverTask = task {
     while true do
-        let! tags = getAllTags()
-        for tag in tags do
-            match tag.Action with
-            | TagAction.PlayYoutube url ->
-                let! _,urls = discoverYoutubeLink url
-                let urls =
-                    urls
-                    |> Array.filter (fun x -> x.Contains "&mime=audio")
-                let! _ = saveLinks tag urls
-                ()
-            | _ -> ()
+        do! discoverYoutube()
         do! Task.Delay (1000 * 60 * 20)
     return ()
 }

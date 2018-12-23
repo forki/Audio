@@ -102,19 +102,20 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
                         waiting <- false
 }
 
-let getMACAddress() =
-    let firstMacAddress = 
-        NetworkInterface.GetAllNetworkInterfaces()
-        |> Seq.filter (fun nic -> nic.OperationalStatus = OperationalStatus.Up && nic.NetworkInterfaceType <> NetworkInterfaceType.Loopback)
-        |> Seq.map (fun nic -> nic.GetPhysicalAddress().ToString())
-        |> Seq.tryHead
-    firstMacAddress
-    |> Option.defaultValue "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
+let getMACAddress() = 
+    NetworkInterface.GetAllNetworkInterfaces()
+    |> Seq.filter (fun nic -> 
+        nic.OperationalStatus = OperationalStatus.Up &&
+        nic.NetworkInterfaceType <> NetworkInterfaceType.Loopback)
+    |> Seq.map (fun nic -> nic.GetPhysicalAddress().ToString())
+    |> Seq.tryHead
 
 let init nodeServices : Model * Cmd<Msg> =
     { PlayList = None
       FirmwareUpdateInterval = TimeSpan.FromHours 1.
-      UserID = getMACAddress()
+      UserID = 
+        getMACAddress()
+        |> Option.defaultValue "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
       TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
       Volume = 0.5 // TODO: load from webserver
       RFID = None
@@ -281,7 +282,6 @@ let update (msg:Msg) (model:Model) =
         model,
             Cmd.batch [
                 Cmd.ofMsg DiscoverStartup
-               // [fun dispatch -> discoverAllYoutubeLinks (dispatch,model) |> Async.AwaitTask |> Async.StartImmediate ]
                 [fun dispatch -> rfidLoop (dispatch,model.NodeServices) |> Async.AwaitTask |> Async.StartImmediate ]
             ]
 

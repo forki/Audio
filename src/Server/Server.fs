@@ -123,15 +123,18 @@ let uploadEndpoint (token:string) =
         })
     }
 
-let tagEndpoint (userID,token) =
+
+let previousFileEndpoint (userID,token) =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             let! _ = AzureTable.saveRequest userID token
             let! tag = AzureTable.getTag userID token
+            let! position = AzureTable.getPlayListPosition userID token 
+            let position = position |> Option.map (fun p -> p.Position + 1) |> Option.defaultValue 0
             let! tag =
                 match tag with
-                | Some t -> t |> mapBlobMusikTag
+                | Some t -> mapBlobMusikTag t
                 | _ -> 
                     let t = { 
                         Token = token
@@ -142,12 +145,47 @@ let tagEndpoint (userID,token) =
                         Object = "" }
                     task { return t }
 
-            let! tag = tag |> mapYoutube
+            let! tag = mapYoutube tag
             let tag : TagForBox = { 
                 Token = tag.Token
                 Object = tag.Object
                 Description = tag.Description
-                Action = TagActionForBox.GetFromTagAction tag.Action } 
+                Action = TagActionForBox.GetFromTagAction(tag.Action,position) } 
+
+            let txt = TagForBox.Encoder tag |> Encode.toString 0
+            return! setBodyFromString txt next ctx
+        })
+    }
+
+let nextFileEndpoint (userID,token) =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let! _ = AzureTable.saveRequest userID token
+            let! tag = AzureTable.getTag userID token
+            
+            let! position = AzureTable.getPlayListPosition userID token 
+            let position = position |> Option.map (fun p -> p.Position - 1) |> Option.defaultValue 0
+
+            let! tag =
+                match tag with
+                | Some t -> mapBlobMusikTag t
+                | _ -> 
+                    let t = { 
+                        Token = token
+                        UserID = userID
+                        Action = TagAction.UnknownTag
+                        LastVerified = DateTimeOffset.MinValue
+                        Description = ""
+                        Object = "" }
+                    task { return t }
+
+            let! tag = mapYoutube tag
+            let tag : TagForBox = { 
+                Token = tag.Token
+                Object = tag.Object
+                Description = tag.Description
+                Action = TagActionForBox.GetFromTagAction(tag.Action,position) } 
 
             let txt = TagForBox.Encoder tag |> Encode.toString 0
             return! setBodyFromString txt next ctx
@@ -169,7 +207,7 @@ let startupEndpoint =
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
-            let action = TagActionForBox.PlayMusik [| sas |]
+            let action = TagActionForBox.PlayMusik sas
 
             let txt =
                 action
@@ -240,7 +278,8 @@ let t = task {
 
 let webApp =
     router {
-        getf "/api/tags/%s/%s" tagEndpoint
+        getf "/api/nextfile/%s/%s" nextFileEndpoint
+        getf "/api/previousfile/%s/%s" previousFileEndpoint
         getf "/api/usertags/%s" allTagsEndpoint
         postf "/api/upload/%s" uploadEndpoint
         get "/api/startup" startupEndpoint

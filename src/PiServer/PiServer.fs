@@ -36,13 +36,12 @@ let log =
     log
 
 
-type PlayList = {
-    MediaFiles: string []
-    Position : int
+type MediaFile = {
+    FileName : string
 }
 
 type Model = {
-    PlayList : PlayList option
+    Playing : MediaFile option
     FirmwareUpdateInterval : TimeSpan
     UserID : string
     TagServer : string
@@ -61,7 +60,7 @@ type Msg =
 | RFIDRemoved
 | DiscoverStartup
 | NewTag of TagForBox
-| Play of PlayList
+| Play of MediaFile
 | NextMediaFile
 | PreviousMediaFile
 | PlayerStopped of string
@@ -111,7 +110,7 @@ let getMACAddress() =
     |> Seq.tryHead
 
 let init nodeServices : Model * Cmd<Msg> =
-    { PlayList = None
+    { Playing = None
       FirmwareUpdateInterval = TimeSpan.FromHours 1.
       UserID = 
         getMACAddress()
@@ -121,9 +120,10 @@ let init nodeServices : Model * Cmd<Msg> =
       RFID = None
       NodeServices = nodeServices }, Cmd.ofMsg CheckFirmware
 
-let resolveRFID (model:Model,token:string) = task {
+
+let nextFile (model:Model,token:string) = task {
     use webClient = new System.Net.WebClient()
-    let url = sprintf @"%s/api/tags/%s/%s" model.TagServer model.UserID token
+    let url = sprintf @"%s/api/nextfile/%s/%s" model.TagServer model.UserID token
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
     match Decode.fromString TagForBox.Decoder result with
@@ -131,6 +131,15 @@ let resolveRFID (model:Model,token:string) = task {
     | Ok tag -> return tag
 }
 
+let previousFile (model:Model,token:string) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf @"%s/api/previousfile/%s/%s" model.TagServer model.UserID token
+    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+
+    match Decode.fromString TagForBox.Decoder result with
+    | Error msg -> return failwith msg
+    | Ok tag -> return tag
+}
 
 let mutable nextFirmwareCheck = DateTimeOffset.MinValue
 
@@ -212,7 +221,7 @@ let update (msg:Msg) (model:Model) =
         { model with Volume = vol }, Cmd.ofFunc setVolumeScript vol Noop Err
 
     | NewRFID rfid ->
-        { model with RFID = Some rfid }, Cmd.ofTask resolveRFID (model,rfid) NewTag Err
+        { model with RFID = Some rfid }, Cmd.ofTask nextFile (model,rfid) NewTag Err
 
     | RFIDRemoved ->
         { model with RFID = None }, Cmd.ofMsg (FinishPlaylist())
@@ -221,16 +230,16 @@ let update (msg:Msg) (model:Model) =
         log.InfoFormat("Got new tag from server: {0}", tag)
         model, Cmd.ofMsg (ExecuteAction tag.Action)
 
-    | Play playList ->
-        let model = { model with PlayList = Some playList }
-        log.InfoFormat("Playing new PlayList with {0} files", playList.MediaFiles.Length)
+    | Play mediaFile ->
+        let model = { model with Playing = Some mediaFile }
+        log.InfoFormat("Playing new MediaFile")
         model, Cmd.none
 
     | PlayerStopped file ->
-        match model.PlayList with
-        | Some playList ->
+        match model.Playing with
+        | Some mediaFile ->
             try
-                let current = playList.MediaFiles.[playList.Position]
+                let current = mediaFile.FileName
                 if current = file then
                     model,Cmd.ofMsg NextMediaFile
                 else
@@ -242,31 +251,21 @@ let update (msg:Msg) (model:Model) =
             model,Cmd.none
 
     | NextMediaFile ->
-        match model.PlayList with
-        | Some playList ->
-            let newPlayList = { playList with Position = playList.Position + 1 }
-
-            if newPlayList.Position >= newPlayList.MediaFiles.Length then
-                model, Cmd.ofMsg (FinishPlaylist())
-            else
-                { model with PlayList = Some newPlayList }, Cmd.none
-        | _ ->
+        match model.RFID with
+        | Some rfid ->
+            model, Cmd.ofTask nextFile (model,rfid) NewTag Err
+        | None ->
             model, Cmd.none
 
     | PreviousMediaFile ->
-        match model.PlayList with
-        | Some playList ->
-            let newPlayList = { playList with Position = playList.Position - 1 }
-
-            if newPlayList.Position < 0 then
-                { model with PlayList = Some { playList with Position = 0 } }, Cmd.none
-            else
-                { model with PlayList = Some newPlayList }, Cmd.none
-        | _ ->
+        match model.RFID with
+        | Some rfid ->
+            model, Cmd.ofTask previousFile (model,rfid) NewTag Err
+        | None ->
             model, Cmd.none
 
     | FinishPlaylist _ ->
-        { model with PlayList = None }, Cmd.none
+        { model with Playing = None }, Cmd.none
 
     | CheckFirmware ->
         model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
@@ -292,12 +291,11 @@ let update (msg:Msg) (model:Model) =
             model, Cmd.none
         | TagActionForBox.StopMusik ->
             model, Cmd.ofMsg (FinishPlaylist())
-        | TagActionForBox.PlayMusik urls ->
-            let playList : PlayList = {
-                MediaFiles = urls
-                Position = 0
+        | TagActionForBox.PlayMusik url ->
+            let mediaFile : MediaFile = {
+                FileName = url
             }
-            model, Cmd.batch [Cmd.ofMsg (Play playList) ]        
+            model, Cmd.batch [Cmd.ofMsg (Play mediaFile) ]        
     | Err exn ->
         log.ErrorFormat("Error: {0}", exn.Message)
         model, Cmd.none
@@ -328,9 +326,9 @@ log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
 let nodeServices = aspnetapp.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
 let view (model:Model) dispatch : Audio =
-    match model.PlayList with
-    | Some playList ->
-        { Url = Some playList.MediaFiles.[playList.Position]; Volume = model.Volume }
+    match model.Playing with
+    | Some mediaFile ->
+        { Url = Some mediaFile.FileName; Volume = model.Volume }
     | _ -> { Url = None; Volume = model.Volume }
 
 let app =

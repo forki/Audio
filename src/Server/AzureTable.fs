@@ -124,6 +124,7 @@ let storageConnectionString =
 let connection = CloudStorageAccount.Parse storageConnectionString
 
 let tagsTable = getTable "tags" connection
+let positionsTable = getTable "positions" connection
 let linksTable = getTable "links" connection
 let requestsTable = getTable "requests" connection
 
@@ -149,6 +150,11 @@ let mapTag (entity: DynamicTableEntity) : Tag =
         | Error msg -> failwith msg
         | Ok action -> action }
 
+
+let mapPlayListPosition (entity: DynamicTableEntity) : PlayListPosition =
+    { UserID = entity.PartitionKey
+      Token = entity.RowKey
+      Position = getIntProperty "Position" entity }
 
 let saveTag (tag:Tag) =
     let entity = DynamicTableEntity()
@@ -193,6 +199,16 @@ let getTag (userID:string) token = task {
     else
         let result = r.Result :?> DynamicTableEntity
         if isNull result then return None else return Some(mapTag result)
+}
+
+let getPlayListPosition (userID:string) token = task {
+    let query = TableOperation.Retrieve(userID, token)
+    let! r = positionsTable.ExecuteAsync(query)
+    if r.HttpStatusCode <> 200 then
+        return None
+    else
+        let result = r.Result :?> DynamicTableEntity
+        if isNull result then return None else return Some(mapPlayListPosition result)
 }
 
 let getAllTagsForUser (userID:string) = task {

@@ -73,13 +73,18 @@ type TagAction =
 type TagActionForBox =
 | UnknownTag
 | StopMusik
-| PlayMusik of string []
+| PlayMusik of string
 
-    static member GetFromTagAction(action:TagAction) =
+    static member GetFromTagAction(action:TagAction,position) =
         match action with
         | TagAction.StopMusik -> TagActionForBox.StopMusik
         | TagAction.UnknownTag -> TagActionForBox.UnknownTag
-        | TagAction.PlayMusik urls -> TagActionForBox.PlayMusik urls
+        | TagAction.PlayMusik urls -> 
+            if Array.isEmpty urls then
+                TagActionForBox.StopMusik
+            else
+                let pos = position % urls.Length
+                TagActionForBox.PlayMusik urls.[pos]
         | _ -> failwithf "Can't convert %A" action
         
     static member Encoder (action : TagActionForBox) =
@@ -92,17 +97,16 @@ type TagActionForBox =
             Encode.object [
                 "StopMusik", Encode.nil
             ]
-        | TagActionForBox.PlayMusik urls ->
+        | TagActionForBox.PlayMusik url ->
             Encode.object [
-                "PlayMusik", Encode.array (Array.map Encode.string urls)
+                "PlayMusik", Encode.string url
             ]
 
     static member Decoder =
         Decode.oneOf [
             Decode.field "UnknownTag" (Decode.succeed TagActionForBox.UnknownTag)
             Decode.field "StopMusik" (Decode.succeed TagActionForBox.StopMusik)
-            Decode.field "PlayMusik" (Decode.array Decode.string)
-                |> Decode.map TagActionForBox.PlayMusik
+            Decode.field "PlayMusik" Decode.string |> Decode.map TagActionForBox.PlayMusik
         ]
 
 type Link = {
@@ -128,7 +132,6 @@ type Tag =
             "LastVerified", Encode.datetimeOffset tag.LastVerified
             "Action", TagAction.Encoder tag.Action
         ]
-
     static member Decoder =
         Decode.object (fun get ->
             { Token = get.Required.Field "Token" Decode.string
@@ -141,6 +144,11 @@ type Tag =
               Action = get.Required.Field "Action" TagAction.Decoder }
         )
 
+type PlayListPosition = {
+    Token : string
+    UserID : string
+    Position : int
+}
 
 type TagForBox =
     { Token : string

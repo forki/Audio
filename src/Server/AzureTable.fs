@@ -191,6 +191,15 @@ let saveRequest (userID:string) (token:string) =
     let operation = TableOperation.InsertOrReplace entity
     requestsTable.ExecuteAsync operation
 
+
+let savePlayListPosition (userID:string) (token:string) position =
+    let entity = DynamicTableEntity()
+    entity.PartitionKey <- userID
+    entity.RowKey <- token
+    entity.Properties.["Position"] <- EntityProperty.GeneratePropertyForInt(Nullable position)
+    let operation = TableOperation.InsertOrReplace entity
+    positionsTable.ExecuteAsync operation
+
 let getTag (userID:string) token = task {
     let query = TableOperation.Retrieve(userID, token)
     let! r = tagsTable.ExecuteAsync(query)

@@ -132,6 +132,7 @@ let previousFileEndpoint (userID,token) =
             let! tag = AzureTable.getTag userID token
             let! position = AzureTable.getPlayListPosition userID token 
             let position = position |> Option.map (fun p -> p.Position + 1) |> Option.defaultValue 0
+            let! _ = AzureTable.savePlayListPosition userID token position
             let! tag =
                 match tag with
                 | Some t -> mapBlobMusikTag t
@@ -150,7 +151,7 @@ let previousFileEndpoint (userID,token) =
                 Token = tag.Token
                 Object = tag.Object
                 Description = tag.Description
-                Action = TagActionForBox.GetFromTagAction(tag.Action,position) } 
+                Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
 
             let txt = TagForBox.Encoder tag |> Encode.toString 0
             return! setBodyFromString txt next ctx
@@ -166,7 +167,7 @@ let nextFileEndpoint (userID,token) =
             
             let! position = AzureTable.getPlayListPosition userID token 
             let position = position |> Option.map (fun p -> p.Position - 1) |> Option.defaultValue 0
-
+            let! _ = AzureTable.savePlayListPosition userID token position
             let! tag =
                 match tag with
                 | Some t -> mapBlobMusikTag t

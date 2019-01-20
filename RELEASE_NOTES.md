@@ -1,5 +1,8 @@
 # Release Notes
 
+## 1.1.0 - 2019-01-20
+* Update from home
+
 ## 1.0.15 - 2018-12-28
 * Christmas edition
 

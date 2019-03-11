@@ -313,4 +313,4 @@ open Fake.Core.TargetOperators
     ==> "RestoreServer"
     ==> "Run"
 
-Target.runOrDefault "Build"
+Target.runOrDefaultWithArguments "Build"

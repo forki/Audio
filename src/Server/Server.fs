@@ -21,7 +21,7 @@ let publicPath = Path.GetFullPath "../Client/public"
 let publicPath = Path.GetFullPath "client"
 #endif
 
-let getSASMediaLink mediaID =  task {
+let getSASMediaLink mediaID = task {
     let connection = AzureTable.connection
     let blobClient = connection.CreateCloudBlobClient()
     let mediaContainer = blobClient.GetContainerReference("media")

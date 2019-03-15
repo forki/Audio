@@ -40,6 +40,8 @@ if [ -e $DEFAULTS ]; then
         log_action_begin_msg "Updating packages "
         log_action_cont_msg " apt update "
         apt-get -qq update
+        log_action_cont_msg " apt upgrade "
+        apt-get -qq upgrade
         log_action_cont_msg " apt install "
         apt-get -qq install  curl libunwind8 gettext apt-transport-https omxplayer npm unzip
         log_action_end_msg $?

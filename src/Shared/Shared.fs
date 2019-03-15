@@ -84,6 +84,8 @@ type TagActionForBox =
                 TagActionForBox.StopMusik
             else
                 let pos = position % urls.Length
+                if pos > urls.Length - 1 || pos < 0 then
+                    failwithf "Urls.Length %d but index is %d" urls.Length pos 
                 TagActionForBox.PlayMusik urls.[pos]
         | _ -> failwithf "Can't convert %A" action
         

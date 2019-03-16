@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "1.1.3"
+let Version = "1.1.5"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 1.1.3 - 2019-03-16
+## 1.1.5 - 2019-03-16
 * Upgrade Raspbian
 
 ## 1.1.0 - 2019-01-20

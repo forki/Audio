@@ -7,3 +7,5 @@ group Pi
     log4net
     Unosquare.Raspberry.IO
     Elmish
+    Unosquare.WiringPi
+    

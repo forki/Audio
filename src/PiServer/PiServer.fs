@@ -15,6 +15,10 @@ open GeneralIO
 open Elmish
 open Elmish.Audio
 open System.Net.NetworkInformation
+open Unosquare.RaspberryIO.Abstractions
+
+
+GeneralIO.init()
 
 let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
 
@@ -72,11 +76,10 @@ type Msg =
 let rfidLoop (dispatch,nodeServices:INodeServices) = task {
     log.InfoFormat("Connecting all buttons")
 
-    use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin07, fun () -> dispatch NextMediaFile)
-    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin01, fun () -> dispatch PreviousMediaFile)
-    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin25, fun () -> dispatch VolumeDown)
-    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.Pin26, fun () -> dispatch VolumeUp)
-
+    use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio04], fun () -> dispatch NextMediaFile)
+    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio18], fun () -> dispatch PreviousMediaFile)
+    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio16], fun () -> dispatch VolumeDown)
+    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio20], fun () -> dispatch VolumeUp)
 
     log.InfoFormat("Waiting for RFID cards or NFC tags...")
     while true do

@@ -28,7 +28,7 @@ group Build
     storage: none
     source https://api.nuget.org/v3/index.json
 
-    nuget FSharp.Core 4.3.4 // https://github.com/fsharp/FAKE/issues/2001
+    nuget FSharp.Core
     nuget Fake.Core.Target
     nuget Fake.DotNet.Cli
     nuget Fake.Tools.Git
@@ -51,3 +51,4 @@ group Pi
     nuget log4net
     nuget Elmish
     nuget Unosquare.Raspberry.IO
+    nuget Unosquare.WiringPi

@@ -5,11 +5,17 @@ open System.Threading.Tasks
 open FSharp.Control.Tasks.ContextInsensitive
 
 open Unosquare.RaspberryIO
+open Unosquare.WiringPi
+open Unosquare.RaspberryIO.Abstractions
 
-type LED(pin:Gpio.GpioPin) =
+
+let init() =
+    Pi.Init<BootstrapWiringPi>()
+
+type LED(pin:IGpioPin) =
     let mutable active = false
     do
-        pin.PinMode <- Gpio.GpioPinDriveMode.Output
+        pin.PinMode <- GpioPinDriveMode.Output
         pin.Write false
 
     with
@@ -31,16 +37,16 @@ type LED(pin:Gpio.GpioPin) =
                 do! Task.Delay(300)
         }
 
-type Button(pin:Gpio.GpioPin,onPress) =
+type Button(pin:IGpioPin,onPress) =
     let mutable lastChangedState = DateTime.MinValue
     let bounceTimeSpan = TimeSpan.FromMilliseconds 30.
     let mutable lastState = false
     do
-        pin.PinMode <- Gpio.GpioPinDriveMode.Input
-        pin.InputPullMode <- Gpio.GpioPinResistorPullMode.PullUp
+        pin.PinMode <- GpioPinDriveMode.Input
+        pin.InputPullMode <- GpioPinResistorPullMode.PullUp
         lastState <- pin.Read()
         pin.RegisterInterruptCallback(
-            Gpio.EdgeDetection.RisingAndFallingEdges,
+            EdgeDetection.FallingAndRisingEdge,
             fun () ->
                 let state = pin.Read()
                 let time = DateTime.UtcNow
@@ -60,7 +66,7 @@ type Button(pin:Gpio.GpioPin,onPress) =
     interface IDisposable with
         member __.Dispose() = d.Dispose()
 
-let waitForButtonPress (pin:Gpio.GpioPin) = task {
+let waitForButtonPress (pin:IGpioPin) = task {
     let pressed = ref false
     use _button = new Button(pin,(fun _ -> pressed := true))
     while not !pressed do

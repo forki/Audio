@@ -151,6 +151,11 @@ let mapTag (entity: DynamicTableEntity) : Tag =
         | Ok action -> action }
 
 
+let mapRequest (entity: DynamicTableEntity) : Request =
+    { UserID = entity.PartitionKey
+      Token = getStringProperty "Token" entity
+      Timestamp = DateTimeOffset.Parse entity.RowKey }
+
 let mapPlayListPosition (entity: DynamicTableEntity) : PlayListPosition =
     { UserID = entity.PartitionKey
       Token = entity.RowKey
@@ -191,6 +196,23 @@ let saveRequest (userID:string) (token:string) =
     let operation = TableOperation.InsertOrReplace entity
     requestsTable.ExecuteAsync operation
 
+
+let getAllRequestsForUser (userID:string) = task {
+    let rec getResults token = task {
+        let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userID)
+        let! result = requestsTable.ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
+        let token = result.ContinuationToken
+        let result = result |> Seq.toList
+        if isNull token then
+            return result
+        else
+            let! others = getResults token
+            return result @ others }
+
+    let! results = getResults null
+
+    return [| for result in results -> mapRequest result |]
+}
 
 let savePlayListPosition (userID:string) (token:string) position =
     let entity = DynamicTableEntity()

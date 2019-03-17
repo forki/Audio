@@ -144,6 +144,24 @@ type Tag =
               Action = get.Required.Field "Action" TagAction.Decoder }
         )
 
+type Request =
+    { Token : string
+      Timestamp : DateTimeOffset
+      UserID : string }
+
+    static member Encoder (request : Request) =
+        Encode.object [
+            "Token", Encode.string request.Token
+            "UserID", Encode.string request.UserID
+            "Timestamp", Encode.datetimeOffset request.Timestamp
+        ]
+    static member Decoder =
+        Decode.object (fun get ->
+            { Token = get.Required.Field "Token" Decode.string
+              UserID = get.Required.Field "UserID" Decode.string
+              Timestamp = get.Required.Field "Timestamp" Decode.datetimeOffset }
+        )
+
 type PlayListPosition = {
     Token : string
     UserID : string
@@ -170,6 +188,19 @@ type TagForBox =
               Object = get.Required.Field "Object" Decode.string
               Description = get.Required.Field "Description" Decode.string
               Action = get.Required.Field "Action" TagActionForBox.Decoder }
+        )
+
+type RequestList =
+    { Requests : Request [] }
+
+    static member Encoder (requesrList : RequestList) =
+        Encode.object [
+            "Requests", requesrList.Requests |> Array.map Request.Encoder |> Encode.array
+        ]
+
+    static member Decoder =
+        Decode.object (fun get ->
+            { Requests = get.Required.Field "Requests" (Decode.array Request.Decoder) }
         )
 
 

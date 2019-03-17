@@ -195,12 +195,22 @@ let nextFileEndpoint (userID,token) =
         })
     }
 
-let allTagsEndpoint userID =
+let userTagsEndPoint userID =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             let! tags = AzureTable.getAllTagsForUser userID
             let txt = TagList.Encoder { Tags = tags } |> Encode.toString 0
+            return! setBodyFromString txt next ctx
+        })
+    }
+
+let historyEndPoint userID =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let! requests = AzureTable.getAllRequestsForUser userID
+            let txt = RequestList.Encoder { Requests = requests } |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })
     }
@@ -284,8 +294,9 @@ let webApp =
     router {
         getf "/api/nextfile/%s/%s" nextFileEndpoint
         getf "/api/previousfile/%s/%s" previousFileEndpoint
-        getf "/api/usertags/%s" allTagsEndpoint
+        getf "/api/usertags/%s" userTagsEndPoint
         postf "/api/upload/%s" uploadEndpoint
+        getf "/api/history/%s" historyEndPoint
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
         get "/api/youtube" youtubeEndpoint

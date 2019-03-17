@@ -65,7 +65,7 @@ let mapBlobMusikTag (tag:Tag) = task {
 let discoverYoutubeLink (youtubeURL:string) = task {
     let lines = System.Collections.Generic.List<_>()
     let proc = new Process ()
-    let startInfo = new ProcessStartInfo()
+    let startInfo = ProcessStartInfo()
     startInfo.FileName <- "/usr/local/bin/youtube-dl"
     startInfo.Arguments <- sprintf " -g \"%s\"" youtubeURL
     startInfo.UseShellExecute <- false
@@ -273,8 +273,9 @@ let tagHistoryBroadcaster = ConnectionManager()
 let t = task {
     while true do
         let body = Encode.Auto.toString(0, TagHistorySocketEvent.ToDo)
-        do! tagHistoryBroadcaster.BroadcastTextAsync(body,key = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f")
-        do! Task.Delay 10000
+        printfn "Sending"
+        do! tagHistoryBroadcaster.BroadcastTextAsync(body,key = "B827EB8E6CA5")
+        do! Task.Delay (1000 * 60 * 20)
 }
 
 let webApp =
@@ -292,7 +293,6 @@ let webApp =
 
 let configureSerialization (services:IServiceCollection) =
     services
-
 
 let configureApp (app : IApplicationBuilder) =
     app.UseWebSockets(Giraffe.WebSocket.DefaultWebSocketOptions)

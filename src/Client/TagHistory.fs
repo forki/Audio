@@ -95,7 +95,5 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
                     Cmd.ofMsg (RetrySocketConnection (TimeSpan.FromSeconds 10.))
                 ]
 
-
-
 let view (dispatch: Msg -> unit) (model:Model) =
     div [][ ]

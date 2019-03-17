@@ -191,7 +191,7 @@ type TagHistorySocketEvent =
 | ToDo
 
 module URLs =
-    let serverPort = 8085us
+    let serverPort = 5000us
 
 #if DEBUG
     let mediaServer = sprintf "http://localhost:%d" serverPort
@@ -204,7 +204,7 @@ module URLs =
 
     let websocketURL =
 #if DEBUG
-        "ws://localhost:8087"
+        "ws://localhost:5000"
 #else
         "wss:/audio-hub.azurewebsites.net"
 #endif

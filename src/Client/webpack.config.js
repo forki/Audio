@@ -14,7 +14,7 @@ var CONFIG = {
     outputDir: resolve("./public"),
     devServerProxy: {
         '/api/*': {
-            target: 'http://localhost:' + (process.env.SUAVE_FABLE_PORT || "8085"),
+            target: 'http://localhost:' + (process.env.SUAVE_FABLE_PORT || "5000"),
             changeOrigin: true
         }
     },

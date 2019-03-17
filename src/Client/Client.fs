@@ -41,8 +41,6 @@ type Msg =
 | FirmwareLoaded of Result<Firmware, exn>
 | Err of exn
 
-
-
 let fetchData (userID) = promise {
     let! res = Fetch.fetch (sprintf "api/usertags/%s" userID) []
     let! txt = res.text()
@@ -86,8 +84,8 @@ let fetchFirmwareCmd = Cmd.ofPromise fetchFirmware () (Ok >> FirmwareLoaded) (Er
 let fetchTagsCmd userID = Cmd.ofPromise fetchData userID (Ok >> TagsLoaded) (Error >> TagsLoaded)
 
 let init () : Model * Cmd<Msg> =
-    let userID = "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO:
-    let hsitoryModel,historyCmd = TagHistory.init userID
+    let userID = "B827EB8E6CA5" // TODO:
+    let historyModel,historyCmd = TagHistory.init userID
 
     let initialModel = {
         Tags = None
@@ -98,7 +96,7 @@ let init () : Model * Cmd<Msg> =
         Message = ""
         ShownTags = [||]
         UserID = userID
-        TagHistory = hsitoryModel
+        TagHistory = historyModel
     }
 
     initialModel,
@@ -274,7 +272,8 @@ let view (model : Model) (dispatch : Msg -> unit) =
                            [ Heading.IsSubtitle
                              Heading.Is4 ]
                            [ audioHubComponents ]
-                          tagsTable model dispatch ]
+                          tagsTable model dispatch
+                          TagHistory.view (dispatch << TagHistoryMsg) model.TagHistory ]
                       Column.column
                         [ Column.Width (Screen.All, Column.Is5) ]
                         [
@@ -294,7 +293,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     [ ul [ ]
                         [ li [ ]
                             [ a [ ]
-                                [ str "AudioHub - 2018" ] ] ] ] ] ] ]
+                                [ str "AudioHub - 2019" ] ] ] ] ] ] ]
 
 
 

@@ -97,7 +97,7 @@ let mapYoutube (tag:Tag) = task {
     | _ -> return tag
 }
 
-let uploadEndpoint (token:string) =
+let uploadEndpoint (userID:string) =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
@@ -114,7 +114,7 @@ let uploadEndpoint (token:string) =
                     Action = tagAction
                     Description = ""
                     LastVerified = DateTimeOffset.UtcNow
-                    UserID = "temp"
+                    UserID = userID
                     Object = "" }
                 let! _saved = AzureTable.saveTag tag
                 let! tag = mapBlobMusikTag tag
@@ -167,7 +167,7 @@ let nextFileEndpoint (userID,token) =
             
             let! position = AzureTable.getPlayListPosition userID token 
             let position = position |> Option.map (fun p -> p.Position - 1) |> Option.defaultValue 0
-            let! _ = AzureTable.savePlayListPosition userID token position
+            
             let! tag =
                 match tag with
                 | Some t -> mapBlobMusikTag t
@@ -187,7 +187,9 @@ let nextFileEndpoint (userID,token) =
                 Object = tag.Object
                 Description = tag.Description
                 Action = TagActionForBox.GetFromTagAction(tag.Action,position) } 
-
+            
+            let! _ = AzureTable.savePlayListPosition userID token position
+            
             let txt = TagForBox.Encoder tag |> Encode.toString 0
             return! setBodyFromString txt next ctx
         })

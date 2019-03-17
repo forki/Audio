@@ -60,7 +60,7 @@ let fetchFirmware() = promise {
 }
 
 
-let uploadFile (fileName,token) = promise {
+let uploadFile (fileName,userID) = promise {
     let formData = Fable.Import.Browser.FormData.Create()
     formData.append("file",fileName)
 
@@ -71,7 +71,7 @@ let uploadFile (fileName,token) = promise {
             //HttpRequestHeaders.ContentType "multipart/form-data"
              ]
           RequestProperties.Body (unbox formData) ]
-    let url = sprintf "api/upload/%s" token
+    let url = sprintf "api/upload/%s" userID
     let! res = Fetch.fetch url props
     let! txt = res.text()
 
@@ -159,7 +159,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         | None -> model, Cmd.none
         | Some fileName ->
             { model with File = None; IsUploading = true; Message = "Upload started" },
-                Cmd.ofPromise uploadFile (fileName,"temp") FileUploaded UploadFailed
+                Cmd.ofPromise uploadFile (fileName,model.UserID) FileUploaded UploadFailed
 
     | Err exn ->
         { model with Message = exn.Message }, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err

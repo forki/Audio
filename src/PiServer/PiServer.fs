@@ -78,8 +78,8 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
 
     use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio04], fun () -> dispatch NextMediaFile)
     use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio18], fun () -> dispatch PreviousMediaFile)
-    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio16], fun () -> dispatch VolumeDown)
-    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio20], fun () -> dispatch VolumeUp)
+    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio26], fun () -> dispatch VolumeDown)
+    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio12], fun () -> dispatch VolumeUp)
 
     log.InfoFormat("Waiting for RFID cards or NFC tags...")
     while true do

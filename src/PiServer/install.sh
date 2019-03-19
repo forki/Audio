@@ -30,7 +30,7 @@ sudo apt-get install -y curl libunwind8 gettext apt-transport-https omxplayer np
 log_action_end_msg $?
 
 log_action_begin_msg "Download dotnet core "
-curl -sSL -o dotnet.tar.gz https://download.visualstudio.microsoft.com/download/pr/a3f3e38e-246a-4eab-8da3-63f9cd1b1c13/c2e795a9bb03bc75d3cfa767f3f77310/dotnet-runtime-2.2.0-linux-arm.tar.gz
+curl -sSL -o dotnet.tar.gz https://download.visualstudio.microsoft.com/download/pr/b12c61f5-7ba4-47f1-93f0-d2280fa4bf3c/8e1ae5ac780c61e0339d0247e7d9a8d8/dotnet-runtime-2.2.3-linux-arm.tar.gz
 sudo mkdir -p /opt/dotnet && sudo tar zxf dotnet.tar.gz -C /opt/dotnet
 rm dotnet.tar.gz
 sudo ln -s /opt/dotnet/dotnet /usr/local/bin

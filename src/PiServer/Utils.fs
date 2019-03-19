@@ -8,4 +8,4 @@ let getMACAddress() =
         nic.OperationalStatus = OperationalStatus.Up &&
         nic.NetworkInterfaceType <> NetworkInterfaceType.Loopback)
     |> Seq.map (fun nic -> nic.GetPhysicalAddress().ToString())
-    |> Seq.tryHead
+    |> Seq.head

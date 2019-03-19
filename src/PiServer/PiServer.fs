@@ -14,13 +14,11 @@ open System.Reflection
 open GeneralIO
 open Elmish
 open Elmish.Audio
-open System.Net.NetworkInformation
 open Unosquare.RaspberryIO.Abstractions
 
 
 GeneralIO.init()
 
-let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
 
 let runIn (timeSpan:TimeSpan) successMsg errorMsg =
     let t() = task {
@@ -108,9 +106,7 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
 let init nodeServices : Model * Cmd<Msg> =
     { Playing = None
       FirmwareUpdateInterval = TimeSpan.FromHours 1.
-      UserID = 
-        Utils.getMACAddress()
-        |> Option.defaultValue "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
+      UserID = Utils.getMACAddress()
       TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
       Volume = 0.5 // TODO: load from webserver
       RFID = None
@@ -140,18 +136,6 @@ let previousFile (model:Model,token:string) = task {
 let mutable nextFirmwareCheck = DateTimeOffset.MinValue
 
 
-let runFirmwareUpdate() =
-    let p = new Process()
-    let startInfo = new ProcessStartInfo()
-    startInfo.WorkingDirectory <- "/home/pi/firmware/"
-    startInfo.FileName <- "sudo"
-    startInfo.Arguments <- "sh update.sh"
-    startInfo.RedirectStandardOutput <- true
-    startInfo.UseShellExecute <- false
-    startInfo.CreateNoWindow <- true
-    p.StartInfo <- startInfo
-    p.Start() |> ignore
-
 let checkFirmware (model:Model) = task {
     use webClient = new System.Net.WebClient()
     System.Net.ServicePointManager.SecurityProtocol <-
@@ -178,19 +162,19 @@ let checkFirmware (model:Model) = task {
                 do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
                 log.Info "Download done."
 
-                if System.IO.Directory.Exists firmwareTarget then
-                    System.IO.Directory.Delete(firmwareTarget,true)
-                System.IO.Directory.CreateDirectory(firmwareTarget) |> ignore
-                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, firmwareTarget)
+                if System.IO.Directory.Exists FirmwareUpdate.firmwareTarget then
+                    System.IO.Directory.Delete(FirmwareUpdate.firmwareTarget,true)
+                System.IO.Directory.CreateDirectory(FirmwareUpdate.firmwareTarget) |> ignore
+                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, FirmwareUpdate.firmwareTarget)
                 System.IO.File.Delete localFileName
-                runFirmwareUpdate()
+                FirmwareUpdate.runFirmwareUpdate()
                 while true do
                     log.Info "Running firmware update."
                     do! Task.Delay 3000
                     ()
             else
-                if System.IO.Directory.Exists firmwareTarget then
-                    System.IO.Directory.Delete(firmwareTarget,true)
+                if System.IO.Directory.Exists FirmwareUpdate.firmwareTarget then
+                    System.IO.Directory.Delete(FirmwareUpdate.firmwareTarget,true)
         with
         | exn ->
             log.ErrorFormat("Upgrade error: {0}", exn.Message)
@@ -223,12 +207,10 @@ let update (msg:Msg) (model:Model) =
         { model with RFID = None }, Cmd.ofMsg (FinishPlaylist())
 
     | NewTag tag ->
-        log.InfoFormat("Got new tag from server: {0}", tag)
         model, Cmd.ofMsg (ExecuteAction tag.Action)
 
     | Play mediaFile ->
         let model = { model with Playing = Some mediaFile }
-        log.InfoFormat("Playing new MediaFile")
         model, Cmd.none
 
     | PlayerStopped file ->
@@ -330,7 +312,7 @@ let view (model:Model) dispatch : Audio =
 let app =
     Program.mkProgram init update view
     |> Program.withTrace (fun msg _model -> log.InfoFormat("{0}", msg))
-    |> Program.withAudio (fun file -> PlayerStopped file)
+    |> Program.withAudio PlayerStopped
 
 
 Program.runWith nodeServices app

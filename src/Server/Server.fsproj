@@ -10,6 +10,7 @@
         <Compile Include="Giraffe.Websocket.fs" />
         <Compile Include="..\Shared\Shared.fs" />
         <Compile Include="AzureTable.fs" />
+        <Compile Include="Utils.fs" />
         <Compile Include="TagHistorySocket.fs" />
         <Compile Include="Server.fs" />
     </ItemGroup>

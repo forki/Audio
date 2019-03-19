@@ -104,19 +104,12 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
                         waiting <- false
 }
 
-let getMACAddress() = 
-    NetworkInterface.GetAllNetworkInterfaces()
-    |> Seq.filter (fun nic -> 
-        nic.OperationalStatus = OperationalStatus.Up &&
-        nic.NetworkInterfaceType <> NetworkInterfaceType.Loopback)
-    |> Seq.map (fun nic -> nic.GetPhysicalAddress().ToString())
-    |> Seq.tryHead
 
 let init nodeServices : Model * Cmd<Msg> =
     { Playing = None
       FirmwareUpdateInterval = TimeSpan.FromHours 1.
       UserID = 
-        getMACAddress()
+        Utils.getMACAddress()
         |> Option.defaultValue "9bb2b109-bf08-4342-9e09-f4ce3fb01c0f" // TODO: load from some config
       TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
       Volume = 0.5 // TODO: load from webserver

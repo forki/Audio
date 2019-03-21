@@ -8,7 +8,6 @@ open System.IO
 open Microsoft.AspNetCore.NodeServices
 open Thoth.Json.Net
 open System.Threading.Tasks
-open System.Diagnostics
 open System.Xml
 open System.Reflection
 open GeneralIO
@@ -78,7 +77,11 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
     use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio18], fun () -> dispatch PreviousMediaFile)
     use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio26], fun () -> dispatch VolumeDown)
     use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio12], fun () -> dispatch VolumeUp)
+    let blueLight = GeneralIO.LED(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio20])
+    let yellowLight = GeneralIO.LED(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio21])
+    let allLights = [| blueLight; yellowLight|]
 
+    let! _ = allLights |> Array.map (fun l -> l.Blink(10)) |> Task.WhenAll
     log.InfoFormat("Waiting for RFID cards or NFC tags...")
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
@@ -131,53 +134,6 @@ let previousFile (model:Model,token:string) = task {
     match Decode.fromString TagForBox.Decoder result with
     | Error msg -> return failwith msg
     | Ok tag -> return tag
-}
-
-let mutable nextFirmwareCheck = DateTimeOffset.MinValue
-
-
-let checkFirmware (model:Model) = task {
-    use webClient = new System.Net.WebClient()
-    System.Net.ServicePointManager.SecurityProtocol <-
-        System.Net.ServicePointManager.SecurityProtocol |||
-          System.Net.SecurityProtocolType.Tls11 |||
-          System.Net.SecurityProtocolType.Tls12
-
-    let url = sprintf @"%s/api/firmware" model.TagServer
-    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
-
-    match Decode.fromString Firmware.Decoder result with
-    | Error msg ->
-        log.ErrorFormat("Decoder error: {0}", msg)
-        return failwith msg
-    | Ok firmware ->
-        try
-            nextFirmwareCheck <- DateTimeOffset.UtcNow.Add model.FirmwareUpdateInterval
-            log.InfoFormat("Latest firmware on server: {0}", firmware.Version)
-            let serverVersion = Paket.SemVer.Parse firmware.Version
-            let localVersion = Paket.SemVer.Parse ReleaseNotes.Version
-            if serverVersion > localVersion then
-                let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".zip")
-                log.InfoFormat("Starting download of {0}", firmware.Url)
-                do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
-                log.Info "Download done."
-
-                if System.IO.Directory.Exists FirmwareUpdate.firmwareTarget then
-                    System.IO.Directory.Delete(FirmwareUpdate.firmwareTarget,true)
-                System.IO.Directory.CreateDirectory(FirmwareUpdate.firmwareTarget) |> ignore
-                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, FirmwareUpdate.firmwareTarget)
-                System.IO.File.Delete localFileName
-                FirmwareUpdate.runFirmwareUpdate()
-                while true do
-                    log.Info "Running firmware update."
-                    do! Task.Delay 3000
-                    ()
-            else
-                if System.IO.Directory.Exists FirmwareUpdate.firmwareTarget then
-                    System.IO.Directory.Delete(FirmwareUpdate.firmwareTarget,true)
-        with
-        | exn ->
-            log.ErrorFormat("Upgrade error: {0}", exn.Message)
 }
 
 let getStartupAction (model:Model) = task {
@@ -246,7 +202,7 @@ let update (msg:Msg) (model:Model) =
         { model with Playing = None }, Cmd.none
 
     | CheckFirmware ->
-        model, Cmd.ofTask checkFirmware model FirmwareUpToDate Err
+        model, Cmd.ofTask FirmwareUpdate.checkFirmware (log,model.TagServer) FirmwareUpToDate Err
 
     | Noop _ ->
         model, Cmd.none

@@ -1,5 +1,8 @@
 # Release Notes
 
+## 1.3.0 - 2019-03-21
+* Show light
+
 ## 1.2.1 - 2019-03-19
 * Update .NET Core to 2.2.3
 

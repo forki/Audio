@@ -1,7 +1,6 @@
 module Utils
 open System.Net.NetworkInformation
 
-
 let getMACAddress() = 
     NetworkInterface.GetAllNetworkInterfaces()
     |> Seq.filter (fun nic -> 

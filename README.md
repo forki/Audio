@@ -70,6 +70,12 @@ network={
 #### Activate SPI master driver
 
 * Modify `config.txt` and remove the comment before `dtparam=spi=on`. [more info](https://www.raspberrypi.org/documentation/hardware/raspberrypi/spi/README.md)
+* Add the following to the end of the file:
+
+```ini
+dtoverlay=gpio-shutdown
+enable_uart=1
+```
 
 ### Wiring up the RFID module
 
@@ -83,7 +89,7 @@ network={
 * Put the SD-Card into the Raspberry Pi
 * Connect the Raspberry Pi with the USB-Charger
 * Try to find out the [IP of your device](https://www.raspberrypi.org/documentation/remote-access/ip-address.md)
-    * If you have multiple Raspberry Pi in the network and want to check if you are SSHing into the right one, you can change the color of the built-in LEDs and see on which Pi it happens: [https://www.jeffgeerling.com/blogs/jeff-geerling/controlling-pwr-act-leds-raspberry-pi](https://www.jeffgeerling.com/blogs/jeff-geerling/controlling-pwr-act-leds-raspberry-pi) 
+    * If you have multiple Raspberry Pi in the network and want to check if you are SSHing into the right one, you can change the color of the built-in LEDs and see on which Pi it happens: [https://www.jeffgeerling.com/blogs/jeff-geerling/controlling-pwr-act-leds-raspberry-pi](https://www.jeffgeerling.com/blogs/jeff-geerling/controlling-pwr-act-leds-raspberry-pi)
 * Connect to the Raspberry Pi via SSH (you can use [putty](https://www.putty.org/) on Windows)
 * Username: "pi", Password: "raspberry"
 * Change the default password with the command `passwd`

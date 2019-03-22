@@ -81,7 +81,8 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
     let yellowLight = GeneralIO.LED(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio21])
     let allLights = [| blueLight; yellowLight|]
 
-    let! _ = allLights |> Array.map (fun l -> l.Blink(10)) |> Task.WhenAll
+    let! _ = allLights |> Array.map (fun l -> l.Blink(2)) |> Task.WhenAll
+
     log.InfoFormat("Waiting for RFID cards or NFC tags...")
     while true do
         let! token = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
@@ -90,6 +91,7 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
             let! _ = Task.Delay(TimeSpan.FromSeconds 0.5)
             ()
         else
+            let! _ = allLights |> Array.map (fun l -> l.Blink(2)) |> Task.WhenAll
             dispatch (NewRFID token)
             let mutable waiting = true
             while waiting do
@@ -101,6 +103,7 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
                     let! _ = Task.Delay(TimeSpan.FromSeconds 2.)
                     let! newToken = nodeServices.InvokeExportAsync<string>("./read-tag", "read", "tag")
                     if newToken <> token then
+                        let! _ = allLights |> Array.map (fun l -> l.Blink(2)) |> Task.WhenAll
                         dispatch RFIDRemoved
                         waiting <- false
 }
@@ -229,7 +232,7 @@ let update (msg:Msg) (model:Model) =
             let mediaFile : MediaFile = {
                 FileName = url
             }
-            model, Cmd.batch [Cmd.ofMsg (Play mediaFile) ]        
+            model, Cmd.batch [Cmd.ofMsg (Play mediaFile) ]
     | Err exn ->
         log.ErrorFormat("Error: {0}", exn.Message)
         model, Cmd.none

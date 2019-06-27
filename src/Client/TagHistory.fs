@@ -4,7 +4,6 @@ module TagHistory
 open Elmish
 open Elmish.React
 open Elmish.HMR
-open Fable.PowerPack
 
 #if FABLE_COMPILER
 open Thoth.Json
@@ -13,13 +12,13 @@ open Thoth.Json.Net
 #endif
 
 open System
-open Fable.PowerPack.Fetch
+open Fetch
 open Fulma
 open ServerCore.Domain
-
+open Browser.Types
 
 type Model = {
-    WebSocket : Fable.Import.Browser.WebSocket
+    WebSocket : WebSocket
     Connected : bool
     UserID : string
     Requests : Request []
@@ -27,7 +26,7 @@ type Model = {
 
 type Msg =
 | Refresh
-| ServerMsg of Elmish.WebSocket.WebSocketMsg<TagHistorySocketEvent>
+| ServerMsg of WebSockets.WebSocketMsg<TagHistorySocketEvent>
 | ConnectToWebsocket
 | RetrySocketConnection of TimeSpan
 | HistoryLoaded of Result<RequestList, exn>
@@ -35,7 +34,7 @@ type Msg =
 
 
 let fetchHistory (userID) = promise {
-    let! res = Fetch.fetch (sprintf "api/history/%s" userID) []
+    let! res = fetch (sprintf "api/history/%s" userID) []
     let! txt = res.text()
 
     match Decode.fromString RequestList.Decoder txt with
@@ -43,7 +42,7 @@ let fetchHistory (userID) = promise {
     | Error msg -> return failwith msg
 }
 
-let fetchHistoryCmd userID = Cmd.ofPromise fetchHistory userID (Ok >> HistoryLoaded) (Error >> HistoryLoaded)
+let fetchHistoryCmd userID = Cmd.OfPromise.either fetchHistory userID (Ok >> HistoryLoaded) (Error >> HistoryLoaded)
 
 
 let init (userID) : Model * Cmd<Msg> =
@@ -67,7 +66,7 @@ let runIn (timeSpan:System.TimeSpan) successMsg errorMsg =
         do! Promise.sleep (int timeSpan.TotalMilliseconds)
         return ()
     }
-    Cmd.ofPromise p () (fun _ -> successMsg) errorMsg
+    Cmd.OfPromise.either p () (fun _ -> successMsg) errorMsg
 
 
 
@@ -86,9 +85,9 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
                 // | Some user ->
                 //     Elmish.WebSocket.createAuthenticated(url,user.Token)
                 // | None ->
-                Elmish.WebSocket.create url
+                WebSockets.create url
             { model with
-                WebSocket = ws }, Elmish.WebSocket.Cmd.Configure ws ServerMsg
+                WebSocket = ws }, WebSockets.Cmd.Configure ws ServerMsg
 
     | HistoryLoaded (Ok requests) ->
         { model with Requests = requests.Requests }, Cmd.ofMsg Refresh
@@ -96,17 +95,17 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | HistoryLoaded _  ->
         model, Cmd.none
 
-    | ServerMsg Elmish.WebSocket.WebSocketMsg.Opening ->
+    | ServerMsg WebSockets.WebSocketMsg.Opening ->
         { model with Connected = true }, Cmd.none
 
-    | ServerMsg Elmish.WebSocket.WebSocketMsg.Closing ->
+    | ServerMsg WebSockets.WebSocketMsg.Closing ->
         { model with Connected = false }, Cmd.ofMsg (RetrySocketConnection (TimeSpan.FromSeconds 10.))
 
-    | ServerMsg (Elmish.WebSocket.WebSocketMsg.Error e) ->
+    | ServerMsg (WebSockets.WebSocketMsg.Error e) ->
         printfn "error: %A" e
         model, Cmd.none
 
-    | ServerMsg (Elmish.WebSocket.WebSocketMsg.Data msg) ->
+    | ServerMsg (WebSockets.WebSocketMsg.Data msg) ->
         model,
             match msg with
             | TagHistorySocketEvent.ToDo -> Cmd.ofMsg Refresh
@@ -124,9 +123,8 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
                     Cmd.ofMsg (RetrySocketConnection (TimeSpan.FromSeconds 10.))
                 ]
 
-open Fable.Helpers.React
-open Fable.Helpers.React.Props
-open Fable.Core.JsInterop
+open Fable.React
+open Fable.React.Props
 
 let historyTable (model : Model) (dispatch : Msg -> unit) =
     div [] [

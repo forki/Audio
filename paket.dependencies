@@ -16,10 +16,14 @@ group Client
     source https://api.nuget.org/v3/index.json
 
     nuget Fable.Core
+    nuget Fable.Fetch
+    nuget Fable.Browser.Dom
     nuget Fable.Elmish.Debugger
+    nuget Fable.Browser.WebSocket
     nuget Fable.Elmish.React
     nuget Fable.Elmish.HMR
     nuget Fulma
+    nuget Fable.Browser.XMLHttpRequest
     nuget Fable.FontAwesome.Free
     nuget Thoth.Json.Net
     nuget Thoth.Json

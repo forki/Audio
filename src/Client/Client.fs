@@ -3,7 +3,6 @@ module Client
 open Elmish
 open Elmish.React
 open Elmish.HMR
-open Fable.PowerPack
 
 #if FABLE_COMPILER
 open Thoth.Json
@@ -12,9 +11,10 @@ open Thoth.Json.Net
 #endif
 
 open System
-open Fable.PowerPack.Fetch
 open Fulma
 open ServerCore.Domain
+open Fetch
+open Browser.XMLHttpRequest
 
 type Model = {
     Tags: TagList option
@@ -42,7 +42,7 @@ type Msg =
 | Err of exn
 
 let fetchData (userID) = promise {
-    let! res = Fetch.fetch (sprintf "api/usertags/%s" userID) []
+    let! res = fetch (sprintf "api/usertags/%s" userID) []
     let! txt = res.text()
 
     match Decode.fromString TagList.Decoder txt with
@@ -51,7 +51,7 @@ let fetchData (userID) = promise {
 }
 
 let fetchFirmware() = promise {
-    let! res = Fetch.fetch "api/firmware" []
+    let! res = fetch "api/firmware" []
     let! txt = res.text()
 
     match Decode.fromString Firmware.Decoder txt with
@@ -61,18 +61,18 @@ let fetchFirmware() = promise {
 
 
 let uploadFile (fileName,userID) = promise {
-    let formData = Fable.Import.Browser.FormData.Create()
+    let formData = FormData.Create()
     formData.append("file",fileName)
 
     let props =
-        [ RequestProperties.Method HttpMethod.POST
-          Fetch.requestHeaders [
+        [ Method HttpMethod.POST
+          requestHeaders [
             // HttpRequestHeaders.Authorization ("Bearer " + model.User.Token)
             //HttpRequestHeaders.ContentType "multipart/form-data"
              ]
-          RequestProperties.Body (unbox formData) ]
+          Body (unbox formData) ]
     let url = sprintf "api/upload/%s" userID
-    let! res = Fetch.fetch url props
+    let! res = fetch url props
     let! txt = res.text()
 
     match Decode.fromString Tag.Decoder txt with
@@ -80,8 +80,8 @@ let uploadFile (fileName,userID) = promise {
     | Error msg -> return failwith msg
 }
 
-let fetchFirmwareCmd = Cmd.ofPromise fetchFirmware () (Ok >> FirmwareLoaded) (Error >> FirmwareLoaded)
-let fetchTagsCmd userID = Cmd.ofPromise fetchData userID (Ok >> TagsLoaded) (Error >> TagsLoaded)
+let fetchFirmwareCmd = Cmd.OfPromise.either fetchFirmware () (Ok >> FirmwareLoaded) (Error >> FirmwareLoaded)
+let fetchTagsCmd userID = Cmd.OfPromise.either fetchData userID (Ok >> TagsLoaded) (Error >> TagsLoaded)
 
 let init () : Model * Cmd<Msg> =
     let userID = "B827EB8E6CA5" // TODO:
@@ -159,15 +159,15 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         | None -> model, Cmd.none
         | Some fileName ->
             { model with File = None; IsUploading = true; Message = "Upload started" },
-                Cmd.ofPromise uploadFile (fileName,model.UserID) FileUploaded UploadFailed
+                Cmd.OfPromise.either uploadFile (fileName,model.UserID) FileUploaded UploadFailed
 
     | Err exn ->
         { model with Message = exn.Message }, Cmd.none //runIn (System.TimeSpan.FromSeconds 5.) Fetch Err
 
 
 
-open Fable.Helpers.React
-open Fable.Helpers.React.Props
+open Fable.React
+open Fable.React.Props
 open Fable.Core.JsInterop
 
 
@@ -305,7 +305,7 @@ Program.mkProgram init update view
 #if DEBUG
 |> Program.withConsoleTrace
 #endif
-|> Program.withReact "elmish-app"
+|> Program.withReactBatched "elmish-app"
 #if DEBUG
 |> Program.withDebugger
 #endif

@@ -1,5 +1,8 @@
 # Release Notes
 
+## 1.4.0 - 2019-06-27
+* Update deps
+
 ## 1.3.1 - 2019-03-22
 * Show light
 

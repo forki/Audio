@@ -1,11 +1,14 @@
 module internal ReleaseNotes
 
-let Version = "1.3.1"
+let Version = "1.4.0"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
+
+## 1.4.0 - 2019-06-27
+* Update deps
 
 ## 1.3.1 - 2019-03-22
 * Show light

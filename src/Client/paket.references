@@ -4,8 +4,11 @@ group Client
     Fable.Elmish.React
     Fable.Elmish.HMR
     Fable.Core
+    Fable.Fetch
     Fulma
     Fable.FontAwesome.Free
+    Fable.Browser.Dom
     Thoth.Json.Net
     Thoth.Json
-    
+    Fable.Browser.WebSocket
+    Fable.Browser.XMLHttpRequest

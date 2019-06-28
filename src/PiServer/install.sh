@@ -26,7 +26,7 @@ apt-get -qq update
 log_action_cont_msg " apt upgrade "
 apt-get -qq upgrade
 log_action_cont_msg " apt install "
-sudo apt-get install -y curl libunwind8 gettext apt-transport-https omxplayer npm unzip
+sudo apt-get install -y curl libunwind8 gettext apt-transport-https omxplayer wiringpi npm unzip
 log_action_end_msg $?
 
 if [ -e  $SCRIPTROOT/$PROJECTNAME ]; then

@@ -36,7 +36,7 @@ if [ -e $DEFAULTS ]; then
         log_action_cont_msg " apt upgrade "
         apt-get -qq upgrade
         log_action_cont_msg " apt install "
-        apt-get -qq install  curl libunwind8 gettext apt-transport-https omxplayer npm unzip
+        apt-get -qq install  curl libunwind8 gettext apt-transport-https omxplayer wiringpi npm unzip
         log_action_end_msg $?
 
         log_action_begin_msg "Updating"

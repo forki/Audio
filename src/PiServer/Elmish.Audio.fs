@@ -74,8 +74,8 @@ module Program =
                     with _ -> ()
         }
 
-        let setState model dispatch =
-            let (v:Audio) = program.view model dispatch
+        let mapSetState setState model dispatch =
+            let (v:Audio) = Program.view program model dispatch
             match lastView with
             | Some r when r = v -> ()
             | Some r ->
@@ -96,5 +96,7 @@ module Program =
                 | _ -> ()
 
             lastView <- Some v
+            setState model dispatch
 
-        { program with setState = setState }
+        program
+        |> Program.map id id id mapSetState id

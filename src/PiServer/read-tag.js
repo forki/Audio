@@ -1,7 +1,16 @@
 "use strict";
-const mfrc522 = require("mfrc522-rpi");
-//# Init WiringPi with SPI Channel 0
-mfrc522.initWiringPi(0);
+const Mfrc522 = require("mfrc522-rpi");
+const SoftSPI = require("rpi-softspi");
+
+const softSPI = new SoftSPI({
+    clock: 23, // pin number of SCLK
+    mosi: 19, // pin number of MOSI
+    miso: 21, // pin number of MISO
+    client: 24 // pin number of CS
+  });
+  
+// GPIO 24 can be used for buzzer bin (PIN 18), Reset pin is (PIN 22).
+const mfrc522 = new Mfrc522(softSPI).setResetPin(22).setBuzzerPin(18);
 
 function decimalToHex(d) {
     var padding = 2;

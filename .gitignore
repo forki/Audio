@@ -21,3 +21,4 @@ deploy
 yarn-error.log
 /src/PiServer/logs/clientlog.log
 /src/PiServer/logs/
+*.orig

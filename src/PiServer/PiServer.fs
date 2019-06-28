@@ -24,7 +24,7 @@ let runIn (timeSpan:TimeSpan) successMsg errorMsg =
         do! Task.Delay (int timeSpan.TotalMilliseconds)
         return ()
     }
-    Cmd.ofTask t () (fun _ -> successMsg) errorMsg
+    Cmd.OfTask.either t () (fun _ -> successMsg) errorMsg
 
 
 let log =
@@ -153,14 +153,14 @@ let update (msg:Msg) (model:Model) =
     match msg with
     | VolumeUp ->
         let vol = min 1. (model.Volume + 0.1)
-        { model with Volume = vol }, Cmd.ofFunc setVolumeScript vol Noop Err
+        { model with Volume = vol }, Cmd.OfFunc.either setVolumeScript vol Noop Err
 
     | VolumeDown ->
         let vol = max 0. (model.Volume - 0.1)
-        { model with Volume = vol }, Cmd.ofFunc setVolumeScript vol Noop Err
+        { model with Volume = vol }, Cmd.OfFunc.either setVolumeScript vol Noop Err
 
     | NewRFID rfid ->
-        { model with RFID = Some rfid }, Cmd.ofTask nextFile (model,rfid) NewTag Err
+        { model with RFID = Some rfid }, Cmd.OfTask.either nextFile (model,rfid) NewTag Err
 
     | RFIDRemoved ->
         { model with RFID = None }, Cmd.ofMsg (FinishPlaylist())
@@ -190,14 +190,14 @@ let update (msg:Msg) (model:Model) =
     | NextMediaFile ->
         match model.RFID with
         | Some rfid ->
-            model, Cmd.ofTask nextFile (model,rfid) NewTag Err
+            model, Cmd.OfTask.either nextFile (model,rfid) NewTag Err
         | None ->
             model, Cmd.none
 
     | PreviousMediaFile ->
         match model.RFID with
         | Some rfid ->
-            model, Cmd.ofTask previousFile (model,rfid) NewTag Err
+            model, Cmd.OfTask.either previousFile (model,rfid) NewTag Err
         | None ->
             model, Cmd.none
 
@@ -205,13 +205,13 @@ let update (msg:Msg) (model:Model) =
         { model with Playing = None }, Cmd.none
 
     | CheckFirmware ->
-        model, Cmd.ofTask FirmwareUpdate.checkFirmware (log,model.TagServer) FirmwareUpToDate Err
+        model, Cmd.OfTask.either FirmwareUpdate.checkFirmware (log,model.TagServer) FirmwareUpToDate Err
 
     | Noop _ ->
         model, Cmd.none
 
     | DiscoverStartup ->
-        model, Cmd.ofTask getStartupAction model ExecuteAction Err
+        model, Cmd.OfTask.either getStartupAction model ExecuteAction Err
 
     | FirmwareUpToDate _ ->
         log.InfoFormat("Firmware {0} is uptodate.", ReleaseNotes.Version)

@@ -1,15 +1,16 @@
 module internal ReleaseNotes
 
-let Version = "1.4.5"
+let Version = "1.4.6"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 1.4.5 - 2019-06-28
+## 1.4.6 - 2019-06-28
 * Update deps
 * Use --self-contained for Firmware
+* Hook into view
 
 ## 1.3.1 - 2019-03-22
 * Show light

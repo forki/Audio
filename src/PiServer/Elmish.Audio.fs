@@ -28,7 +28,7 @@ dbus-send --print-reply --session --reply-timeout=500 \
         File.Delete(volumeScript)
     File.WriteAllText(volumeScript,txt.Replace("\r\n","\n").Replace("\r","\n"))
     let p = new Process()
-    let startInfo = new ProcessStartInfo()
+    let startInfo = ProcessStartInfo()
     startInfo.WorkingDirectory <- "./"
     startInfo.FileName <- "sudo"
     startInfo.Arguments <- "sh volume.sh"

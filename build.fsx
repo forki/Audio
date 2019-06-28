@@ -155,7 +155,7 @@ Target.create "CreateFirmware" (fun _ ->
             { info with
                 FileName = dotnetOpts.DotNetCliPath
                 WorkingDirectory = piServerPath
-                Arguments = "publish -c Release -r linux-arm -o \"" + Path.getFullName publish + "\"" }) TimeSpan.MaxValue
+                Arguments = "publish -c Release -r linux-arm --self-contained -o \"" + Path.getFullName publish + "\"" }) TimeSpan.MaxValue
     if result <> 0 then failwith "Publish PiServer failed"
 
     [ piServerPath </> "PiServer"

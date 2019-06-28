@@ -29,13 +29,6 @@ log_action_cont_msg " apt install "
 sudo apt-get install -y curl libunwind8 gettext apt-transport-https omxplayer npm unzip
 log_action_end_msg $?
 
-log_action_begin_msg "Download dotnet core "
-curl -sSL -o dotnet.tar.gz https://download.visualstudio.microsoft.com/download/pr/b12c61f5-7ba4-47f1-93f0-d2280fa4bf3c/8e1ae5ac780c61e0339d0247e7d9a8d8/dotnet-runtime-2.2.3-linux-arm.tar.gz
-sudo mkdir -p /opt/dotnet && sudo tar zxf dotnet.tar.gz -C /opt/dotnet
-rm dotnet.tar.gz
-sudo ln -s /opt/dotnet/dotnet /usr/local/bin
-log_action_end_msg $?
-
 if [ -e  $SCRIPTROOT/$PROJECTNAME ]; then
     if [ ! -e $DEFAULTS -a $SCRIPTROOT/$PROJECTNAME.defaults ]; then
         echo DAEMONHOME=$DAEMONHOME > $DEFAULTS

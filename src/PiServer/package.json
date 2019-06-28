@@ -1,6 +1,6 @@
 {
     "private": true,
     "dependencies": {
-        "mfrc522-rpi": "1.1.0"
+        "mfrc522-rpi": "2.0.0"
     }
 }

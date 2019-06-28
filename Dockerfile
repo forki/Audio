@@ -1,4 +1,5 @@
-FROM microsoft/dotnet:2.2-runtime
+ARG REPO=mcr.microsoft.com/dotnet/core/runtime
+FROM $REPO:2.2.5
 COPY /deploy .
 
 # Install Python.

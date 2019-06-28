@@ -106,7 +106,7 @@ enable_uart=1
 
 ### Checking logs
 
-`tailf PiServer/publish/logs/clientlog.log`
+`tail -f PiServer/publish/logs/clientlog.log`
 
 ### Testing self-built Firmware
 

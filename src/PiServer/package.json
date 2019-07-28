@@ -1,6 +1,7 @@
 {
     "private": true,
     "dependencies": {
-        "mfrc522-rpi": "2.0.0"
+        "mfrc522-rpi": "2.0.0",
+        "rpi-softspi": "1.0.5"
     }
 }

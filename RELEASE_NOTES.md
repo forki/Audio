@@ -1,6 +1,6 @@
 # Release Notes
 
-## 1.4.18 - 2019-07-28
+## 1.4.19 - 2019-07-28
 * Update deps
 * Use --self-contained for Firmware
 * Hook into view

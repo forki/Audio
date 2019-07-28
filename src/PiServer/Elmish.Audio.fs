@@ -48,11 +48,11 @@ module Program =
             dispatch (stoppedMsg file)
 
         let play dispatch file volume =
-            let p = new System.Diagnostics.Process()
+            let p = new Process()
             p.EnableRaisingEvents <- true
             p.Exited.Add (sendMsg file dispatch)
 
-            let startInfo = System.Diagnostics.ProcessStartInfo()
+            let startInfo = ProcessStartInfo()
             startInfo.FileName <- "omxplayer"
             let volume = int (System.Math.Round(2000. * System.Math.Log10 volume))
             startInfo.Arguments <- sprintf "--vol %d " volume + file
@@ -63,8 +63,8 @@ module Program =
             for p in getMusikPlayerProcesses() do
                 if not p.HasExited then
                     try
-                        let killP = new System.Diagnostics.Process()
-                        let startInfo = System.Diagnostics.ProcessStartInfo()
+                        let killP = new Process()
+                        let startInfo = ProcessStartInfo()
                         startInfo.FileName <- "sudo"
                         startInfo.Arguments <- "kill -9 " + p.Id.ToString()
                         killP.StartInfo <- startInfo

@@ -7,8 +7,9 @@ open Thoth.Json.Net
 open ServerCore.Domain
 open System.Threading.Tasks
 open Paket
+open System.IO
 
-let firmwareTarget = System.IO.Path.GetFullPath "/home/pi/firmware"
+let firmwareTarget = Path.GetFullPath "/home/pi/firmware"
 
 let runFirmwareUpdate() =
     let p = new Process()
@@ -23,14 +24,14 @@ let runFirmwareUpdate() =
     p.Start() |> ignore
 
 let checkFirmware (log:log4net.ILog,tagServer) = task {
-    use webClient = new System.Net.WebClient()
-    System.Net.ServicePointManager.SecurityProtocol <-
-        System.Net.ServicePointManager.SecurityProtocol |||
-          System.Net.SecurityProtocolType.Tls11 |||
-          System.Net.SecurityProtocolType.Tls12
+    use webClient = new Net.WebClient()
+    Net.ServicePointManager.SecurityProtocol <-
+        Net.ServicePointManager.SecurityProtocol |||
+          Net.SecurityProtocolType.Tls11 |||
+          Net.SecurityProtocolType.Tls12
 
     let url = sprintf @"%s/api/firmware" tagServer
-    let! result = webClient.DownloadStringTaskAsync(System.Uri url)
+    let! result = webClient.DownloadStringTaskAsync(Uri url)
 
     match Decode.fromString Firmware.Decoder result with
     | Error msg ->
@@ -42,24 +43,24 @@ let checkFirmware (log:log4net.ILog,tagServer) = task {
             let serverVersion = SemVer.Parse firmware.Version
             let localVersion = SemVer.Parse ReleaseNotes.Version
             if serverVersion > localVersion then
-                let localFileName = System.IO.Path.GetTempFileName().Replace(".tmp", ".zip")
+                let localFileName = Path.GetTempFileName().Replace(".tmp", ".zip")
                 log.InfoFormat("Starting download of {0}", firmware.Url)
                 do! webClient.DownloadFileTaskAsync(firmware.Url,localFileName)
                 log.Info "Download done."
 
-                if System.IO.Directory.Exists firmwareTarget then
-                    System.IO.Directory.Delete(firmwareTarget,true)
-                System.IO.Directory.CreateDirectory(firmwareTarget) |> ignore
-                System.IO.Compression.ZipFile.ExtractToDirectory(localFileName, firmwareTarget)
-                System.IO.File.Delete localFileName
+                if Directory.Exists firmwareTarget then
+                    Directory.Delete(firmwareTarget,true)
+                Directory.CreateDirectory(firmwareTarget) |> ignore
+                Compression.ZipFile.ExtractToDirectory(localFileName, firmwareTarget)
+                File.Delete localFileName
                 runFirmwareUpdate()
                 while true do
                     log.Info "Running firmware update."
                     do! Task.Delay 3000
                     ()
             else
-                if System.IO.Directory.Exists firmwareTarget then
-                    System.IO.Directory.Delete(firmwareTarget,true)
+                if Directory.Exists firmwareTarget then
+                    Directory.Delete(firmwareTarget,true)
         with
         | exn ->
             log.ErrorFormat("Upgrade error: {0}", exn.Message)

@@ -251,7 +251,7 @@ let volumeUpEndpoint userID =
         plug (fun next ctx -> task {
             match! AzureTable.getUser userID with
             | None ->
-                return! Response.forbidden ctx userID
+                return! Response.notFound ctx userID
             | Some user ->
                 let logger = ctx.GetLogger "VolumeUp"
                 do! Sonos.volumeUp logger user.SonosAccessToken Sonos.group
@@ -264,7 +264,7 @@ let volumeDownEndpoint userID =
         plug (fun next ctx -> task {
             match! AzureTable.getUser userID with
             | None ->
-                return! Response.forbidden ctx userID
+                return! Response.notFound ctx userID
             | Some user ->
                 let logger = ctx.GetLogger "VolumeDown"
                 do! Sonos.volumeDown logger user.SonosAccessToken Sonos.group
@@ -362,8 +362,8 @@ let webApp =
         getf "/api/nextfile/%s/%s" nextFileEndpoint
         getf "/api/previousfile/%s/%s" previousFileEndpoint
         getf "/api/usertags/%s" userTagsEndPoint
-        postf "/api/volumeup/%s" volumeUpEndpoint
-        postf "/api/volumedown/%s" volumeDownEndpoint
+        getf "/api/volumeup/%s" volumeUpEndpoint
+        getf "/api/volumedown/%s" volumeDownEndpoint
         postf "/api/upload/%s" uploadEndpoint
         getf "/api/history/%s" historyEndPoint
         get "/api/startup" startupEndpoint

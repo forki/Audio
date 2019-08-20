@@ -201,9 +201,10 @@ let playStream (log:ILogger) accessToken (session:Session) (tag:Tag) = task {
     }"""                stream.[0] (tag.Object + " - " + tag.Description) tag.Token
 
 
-        let! _result = post log url headers body
-        ()
-    | _ -> ()
+        let! result = post log url headers body
+        log.LogTrace(result)
+    | _ ->
+        log.LogError(sprintf "TagAction %A can't be played on Sonos" tag.Action)
 }
 
 let previousFileEndpoint (userID,token) =

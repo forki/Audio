@@ -170,7 +170,7 @@ type Session =
         )
 
 let createOrJoinSession (log:ILogger) accessToken group = task {
-    let headers = ["Bearer" , accessToken]
+    let headers = ["Authorization", "Bearer " + accessToken]
     let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playbackSession/joinOrCreate" group
     let body = """{
     "appId": "com.Forkmann.AudioHub",
@@ -187,7 +187,7 @@ let createOrJoinSession (log:ILogger) accessToken group = task {
 
 
 let playStream (log:ILogger) accessToken (session:Session) (tag:Tag) = task {
-    let headers = ["Bearer" , accessToken]
+    let headers = ["Authorization", "Bearer " + accessToken]
     let url = sprintf "https://api.ws.sonos.com/control/api/v1/playbackSessions/%s/playbackSession/loadStreamUrl" session.ID
 
     match tag.Action with

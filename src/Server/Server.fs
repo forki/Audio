@@ -173,7 +173,7 @@ let createOrJoinSession (log:ILogger) accessToken group = task {
     let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playbackSession/joinOrCreate" group
     let body = """{
     "appId": "com.Forkmann.AudioHub",
-    "appContext": "1a2b3c24b",
+    "appContext": "1a2b3c",
     "customData": "playlistid:12345"
 }"""
 

@@ -154,6 +154,8 @@ let mapTag (entity: DynamicTableEntity) : Tag =
 let mapUser (entity: DynamicTableEntity) : User =
     { UserID = entity.RowKey
       SonosID = getStringProperty "SonosID" entity
+      SonosAccessToken = getStringProperty "SonosAccessToken" entity
+      SonosRefreshToken = getStringProperty "SonosRefreshToken" entity
       SpeakerType =
         match Decode.fromString SpeakerType.Decoder (getStringProperty "SpeakerType" entity) with
         | Error msg -> failwith msg

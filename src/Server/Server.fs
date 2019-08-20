@@ -123,7 +123,6 @@ let uploadEndpoint (userID:string) =
         })
     }
 
-let accessToken = "0df1e468-cd6f-4038-9734-9bcf4777925b"
 let group = "RINCON_347E5CF009E001400:3169659583"
 
 open System.Net
@@ -246,8 +245,8 @@ let previousFileEndpoint (userID,token) =
                     return! setBodyFromString txt next ctx
                 | SpeakerType.Sonos ->
                     let logger = ctx.GetLogger "PreviousFile"
-                    let! session = createOrJoinSession logger accessToken group
-                    do! playStream logger accessToken session tag
+                    let! session = createOrJoinSession logger user.SonosAccessToken group
+                    do! playStream logger user.SonosAccessToken session tag
 
                     let tag : TagForBox = {
                         Token = tag.Token
@@ -304,8 +303,8 @@ let nextFileEndpoint (userID,token) =
                     return! setBodyFromString txt next ctx
                 | SpeakerType.Sonos ->
                     let logger = ctx.GetLogger "NextFile"
-                    let! session = createOrJoinSession logger accessToken group
-                    do! playStream logger accessToken session tag
+                    let! session = createOrJoinSession logger user.SonosAccessToken group
+                    do! playStream logger user.SonosAccessToken session tag
 
                     let tag : TagForBox = {
                         Token = tag.Token

@@ -175,18 +175,24 @@ type SpeakerType =
 type User =
     { UserID : string
       SpeakerType : SpeakerType
+      SonosAccessToken : string
+      SonosRefreshToken : string
       SonosID : string }
 
     static member Encoder (user : User) =
         Encode.object [
             "UserID", Encode.string user.UserID
             "SpeakerType", SpeakerType.Encoder user.SpeakerType
+            "SonosAccessToken", Encode.string user.SonosAccessToken
+            "SonosRefreshToken", Encode.string user.SonosRefreshToken
             "SonosID", Encode.string user.SonosID
         ]
     static member Decoder =
         Decode.object (fun get ->
             { UserID = get.Required.Field "UserID" Decode.string
               SpeakerType = get.Required.Field "SpeakerType" SpeakerType.Decoder
+              SonosAccessToken = get.Required.Field "SonosAccessToken" Decode.string
+              SonosRefreshToken = get.Required.Field "SonosRefreshToken" Decode.string
               SonosID = get.Required.Field "SonosID" Decode.string }
         )
 

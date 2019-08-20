@@ -248,11 +248,10 @@ let userTagsEndPoint userID =
 
 let volumeUpEndpoint userID =
     pipeline {
-        set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             match! AzureTable.getUser userID with
             | None ->
-                return! Response.notFound ctx userID
+                return! Response.forbidden ctx userID
             | Some user ->
                 let logger = ctx.GetLogger "VolumeUp"
                 do! Sonos.volumeUp logger user.SonosAccessToken Sonos.group
@@ -262,11 +261,10 @@ let volumeUpEndpoint userID =
 
 let volumeDownEndpoint userID =
     pipeline {
-        set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             match! AzureTable.getUser userID with
             | None ->
-                return! Response.notFound ctx userID
+                return! Response.forbidden ctx userID
             | Some user ->
                 let logger = ctx.GetLogger "VolumeDown"
                 do! Sonos.volumeDown logger user.SonosAccessToken Sonos.group

@@ -119,6 +119,14 @@ let init nodeServices : Model * Cmd<Msg> =
       NodeServices = nodeServices }, Cmd.ofMsg CheckFirmware
 
 
+let volumeUp (model:Model) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf @"%s/api/volumeup/%s" model.TagServer model.UserID
+    let! _result = webClient.DownloadStringTaskAsync(System.Uri url)
+    ()
+}
+
+
 let nextFile (model:Model,token:string) = task {
     use webClient = new System.Net.WebClient()
     let url = sprintf @"%s/api/nextfile/%s/%s" model.TagServer model.UserID token

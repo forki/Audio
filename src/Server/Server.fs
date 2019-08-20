@@ -217,7 +217,6 @@ let nextFileEndpoint (userID,token) =
                         Description = tag.Description
                         Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
 
-
                     let txt = TagForBox.Encoder tag |> Encode.toString 0
                     return! setBodyFromString txt next ctx
                 | SpeakerType.Sonos ->
@@ -251,9 +250,27 @@ let volumeUpEndpoint userID =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let! tags = AzureTable.getAllTagsForUser userID
-            let txt = TagList.Encoder { Tags = tags } |> Encode.toString 0
-            return! setBodyFromString txt next ctx
+            match! AzureTable.getUser userID with
+            | None ->
+                return! Response.notFound ctx userID
+            | Some user ->
+                let logger = ctx.GetLogger "VolumeUp"
+                do! Sonos.volumeUp logger user.SonosAccessToken Sonos.group
+                return! Response.ok ctx userID
+        })
+    }
+
+let volumeDownEndpoint userID =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            match! AzureTable.getUser userID with
+            | None ->
+                return! Response.notFound ctx userID
+            | Some user ->
+                let logger = ctx.GetLogger "VolumeDown"
+                do! Sonos.volumeDown logger user.SonosAccessToken Sonos.group
+                return! Response.ok ctx userID
         })
     }
 
@@ -348,7 +365,7 @@ let webApp =
         getf "/api/previousfile/%s/%s" previousFileEndpoint
         getf "/api/usertags/%s" userTagsEndPoint
         postf "/api/volumeup/%s" volumeUpEndpoint
-        postf "/api/volumedown/%s" volumeUpEndpoint
+        postf "/api/volumedown/%s" volumeDownEndpoint
         postf "/api/upload/%s" uploadEndpoint
         getf "/api/history/%s" historyEndPoint
         get "/api/startup" startupEndpoint

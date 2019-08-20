@@ -51,7 +51,7 @@ type Session =
 
 let createOrJoinSession (log:ILogger) accessToken group = task {
     let headers = ["Authorization", "Bearer " + accessToken]
-    let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playbackSession/create" group
+    let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playbackSession" group
     let body = """{
     "appId": "com.Forkmann.AudioHub",
     "appContext": "1a2b3c",
@@ -64,6 +64,31 @@ let createOrJoinSession (log:ILogger) accessToken group = task {
     | Error msg -> return failwith msg
     | Ok session -> return session
 }
+
+let volumeUp (log:ILogger) accessToken group = task {
+    let headers = ["Authorization", "Bearer " + accessToken]
+    let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/groupVolume/relative" group
+    let body = """{
+  "volumeDelta": 10
+}"""
+
+    let! _result = post log url headers body
+
+    ()
+}
+
+let volumeDown (log:ILogger) accessToken group = task {
+    let headers = ["Authorization", "Bearer " + accessToken]
+    let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/groupVolume/relative" group
+    let body = """{
+  "volumeDelta": -10
+}"""
+
+    let! _result = post log url headers body
+
+    ()
+}
+
 
 
 let playStream (log:ILogger) accessToken (session:Session) (tag:Tag) = task {

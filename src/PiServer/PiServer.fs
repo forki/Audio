@@ -223,6 +223,8 @@ let update (msg:Msg) (model:Model) =
 
     | ExecuteAction action ->
         match action with
+        | TagActionForBox.Ignore ->
+            model, Cmd.none
         | TagActionForBox.UnknownTag ->
             log.Warn "Unknown Tag"
             model, Cmd.none

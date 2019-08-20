@@ -124,6 +124,7 @@ let storageConnectionString =
 let connection = CloudStorageAccount.Parse storageConnectionString
 
 let tagsTable = getTable "tags" connection
+let usersTable = getTable "users" connection
 let positionsTable = getTable "positions" connection
 let linksTable = getTable "links" connection
 let requestsTable = getTable "requests" connection
@@ -150,6 +151,13 @@ let mapTag (entity: DynamicTableEntity) : Tag =
         | Error msg -> failwith msg
         | Ok action -> action }
 
+let mapUser (entity: DynamicTableEntity) : User =
+    { UserID = entity.RowKey
+      SonosID = getStringProperty "SonosID" entity
+      SpeakerType =
+        match Decode.fromString SpeakerType.Decoder (getStringProperty "SpeakerType" entity) with
+        | Error msg -> failwith msg
+        | Ok action -> action }
 
 let mapRequest (entity: DynamicTableEntity) : Request =
     { UserID = entity.PartitionKey
@@ -230,6 +238,16 @@ let getTag (userID:string) token = task {
     else
         let result = r.Result :?> DynamicTableEntity
         if isNull result then return None else return Some(mapTag result)
+}
+
+let getUser (userID:string) = task {
+    let query = TableOperation.Retrieve("users", userID)
+    let! r = usersTable.ExecuteAsync(query)
+    if r.HttpStatusCode <> 200 then
+        return None
+    else
+        let result = r.Result :?> DynamicTableEntity
+        if isNull result then return None else return Some(mapUser result)
 }
 
 let getPlayListPosition (userID:string) token = task {

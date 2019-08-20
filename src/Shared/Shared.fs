@@ -72,6 +72,7 @@ type TagAction =
 [<RequireQualifiedAccess>]
 type TagActionForBox =
 | UnknownTag
+| Ignore
 | StopMusik
 | PlayMusik of string
 
@@ -79,14 +80,14 @@ type TagActionForBox =
         match action with
         | TagAction.StopMusik -> TagActionForBox.StopMusik
         | TagAction.UnknownTag -> TagActionForBox.UnknownTag
-        | TagAction.PlayMusik urls -> 
+        | TagAction.PlayMusik urls ->
             if Array.isEmpty urls then
                 TagActionForBox.StopMusik
             else
                 let pos = Math.Abs(position % urls.Length)
                 TagActionForBox.PlayMusik urls.[pos]
         | _ -> failwithf "Can't convert %A" action
-        
+
     static member Encoder (action : TagActionForBox) =
         match action with
         | TagActionForBox.UnknownTag ->
@@ -97,6 +98,10 @@ type TagActionForBox =
             Encode.object [
                 "StopMusik", Encode.nil
             ]
+        | TagActionForBox.Ignore ->
+            Encode.object [
+                "Ignore", Encode.nil
+            ]
         | TagActionForBox.PlayMusik url ->
             Encode.object [
                 "PlayMusik", Encode.string url
@@ -106,6 +111,7 @@ type TagActionForBox =
         Decode.oneOf [
             Decode.field "UnknownTag" (Decode.succeed TagActionForBox.UnknownTag)
             Decode.field "StopMusik" (Decode.succeed TagActionForBox.StopMusik)
+            Decode.field "Ignore" (Decode.succeed TagActionForBox.Ignore)
             Decode.field "PlayMusik" Decode.string |> Decode.map TagActionForBox.PlayMusik
         ]
 
@@ -138,10 +144,50 @@ type Tag =
               Object = get.Required.Field "Object" Decode.string
               Description = get.Required.Field "Description" Decode.string
               UserID = get.Required.Field "UserID" Decode.string
-              LastVerified = 
-                    get.Optional.Field "LastVerified" Decode.datetimeOffset 
+              LastVerified =
+                    get.Optional.Field "LastVerified" Decode.datetimeOffset
                     |> Option.defaultValue DateTimeOffset.MinValue
               Action = get.Required.Field "Action" TagAction.Decoder }
+        )
+
+[<RequireQualifiedAccess>]
+type SpeakerType =
+| Local
+| Sonos
+
+    static member Encoder (action : SpeakerType) =
+        match action with
+        | Local ->
+            Encode.object [
+                "Local", Encode.nil
+            ]
+        | Sonos ->
+            Encode.object [
+                "Sonos", Encode.nil
+            ]
+
+    static member Decoder =
+        Decode.oneOf [
+            Decode.field "Local" (Decode.succeed SpeakerType.Local)
+            Decode.field "Sonos" (Decode.succeed SpeakerType.Sonos)
+        ]
+
+type User =
+    { UserID : string
+      SpeakerType : SpeakerType
+      SonosID : string }
+
+    static member Encoder (user : User) =
+        Encode.object [
+            "UserID", Encode.string user.UserID
+            "SpeakerType", SpeakerType.Encoder user.SpeakerType
+            "SonosID", Encode.string user.SonosID
+        ]
+    static member Decoder =
+        Decode.object (fun get ->
+            { UserID = get.Required.Field "UserID" Decode.string
+              SpeakerType = get.Required.Field "SpeakerType" SpeakerType.Decoder
+              SonosID = get.Required.Field "SonosID" Decode.string }
         )
 
 type Request =

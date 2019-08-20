@@ -53,7 +53,7 @@ let uploadMusik (stream:Stream) = task {
 let mapBlobMusikTag (tag:Tag) = task {
     match tag.Action with
     | TagAction.PlayBlobMusik mediaIDs ->
-        let list = System.Collections.Generic.List<_>() 
+        let list = System.Collections.Generic.List<_>()
         for mediaID in mediaIDs do
             let! sas = getSASMediaLink(mediaID.ToString())
             list.Add sas
@@ -109,7 +109,7 @@ let uploadEndpoint (userID:string) =
                 let file = form.Files.[0]
                 use stream = file.OpenReadStream()
                 let! tagAction = uploadMusik stream
-                let tag : Tag = { 
+                let tag : Tag = {
                     Token = System.Guid.NewGuid().ToString()
                     Action = tagAction
                     Description = ""
@@ -130,14 +130,14 @@ let previousFileEndpoint (userID,token) =
         plug (fun next ctx -> task {
             let! _ = AzureTable.saveRequest userID token
             let! tag = AzureTable.getTag userID token
-            let! position = AzureTable.getPlayListPosition userID token 
+            let! position = AzureTable.getPlayListPosition userID token
             let position = position |> Option.map (fun p -> p.Position + 1) |> Option.defaultValue 0
             let! _ = AzureTable.savePlayListPosition userID token position
             let! tag =
                 match tag with
                 | Some t -> mapBlobMusikTag t
-                | _ -> 
-                    let t = { 
+                | _ ->
+                    let t = {
                         Token = token
                         UserID = userID
                         Action = TagAction.UnknownTag
@@ -147,7 +147,7 @@ let previousFileEndpoint (userID,token) =
                     task { return t }
 
             let! tag = mapYoutube tag
-            let tag : TagForBox = { 
+            let tag : TagForBox = {
                 Token = tag.Token
                 Object = tag.Object
                 Description = tag.Description
@@ -158,40 +158,145 @@ let previousFileEndpoint (userID,token) =
         })
     }
 
+let accessToken = "0df1e468-cd6f-4038-9734-9bcf4777925b"
+let group = "RINCON_347E5CF009E001400:3169659583"
+
+open System.Net
+open Microsoft.Extensions.Logging
+
+let post (log:ILogger) (url:string) headers (data:string) = task {
+    let req = HttpWebRequest.Create(url) :?> HttpWebRequest
+    req.ProtocolVersion <- HttpVersion.Version10
+    req.Method <- "POST"
+
+    for (name:string),(value:string) in headers do
+        req.Headers.Add(name,value) |> ignore
+
+    let postBytes = System.Text.Encoding.UTF8.GetBytes(data)
+    req.ContentType <- "application/json; charset=utf-8"
+    req.ContentLength <- int64 postBytes.Length
+
+    try
+        // Write data to the request
+        use reqStream = req.GetRequestStream()
+        do! reqStream.WriteAsync(postBytes, 0, postBytes.Length)
+        reqStream.Close()
+
+        use resp = req.GetResponse()
+        use stream = resp.GetResponseStream()
+        use reader = new StreamReader(stream)
+        let! html = reader.ReadToEndAsync()
+        return html
+    with
+    | :? WebException as exn when not (isNull exn.Response) ->
+        use errorResponse = exn.Response :?> HttpWebResponse
+        use reader = new StreamReader(errorResponse.GetResponseStream())
+        let error = reader.ReadToEnd()
+        log.LogError(sprintf "Request to %s failed with: %s %s" url exn.Message error)
+        return! raise exn
+}
+
+type Session =
+    { ID : string }
+
+    static member Decoder =
+        Decode.object (fun get ->
+            { ID = get.Required.Field "sessionId" Decode.string }
+        )
+
+let createOrJoinSession (log:ILogger) accessToken group = task {
+    let headers = ["Bearer " , accessToken]
+    let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playbackSession/joinOrCreate" group
+    let body = """{
+    "appId": "com.Forkmann.AudioHub",
+    "appContext": "1a2b3c24b",
+    "customData": "playlistid:12345"
+}"""
+
+    let! result = post log url headers body
+
+    match Decode.fromString Session.Decoder result with
+    | Error msg -> return failwith msg
+    | Ok session -> return session
+}
+
+
+let playStream (log:ILogger) accessToken (session:Session) (tag:Tag) = task {
+    let headers = ["Bearer " , accessToken]
+    let url = sprintf "https://api.ws.sonos.com/control/api/v1/playbackSessions/%s/playbackSession/loadStreamUrl" session.ID
+
+    match tag.Action with
+    | TagAction.PlayMusik stream ->
+        let body = sprintf """{
+      "streamUrl": "%s",
+      "playOnCompletion": true,
+      "stationMetadata": {
+        "name": "%s"
+      },
+      "itemId" : "%s"
+    }"""                stream.[0] (tag.Object + " - " + tag.Description) tag.Token
+
+
+        let! _result = post log url headers body
+        ()
+    | _ -> ()
+}
+
 let nextFileEndpoint (userID,token) =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
             let! _ = AzureTable.saveRequest userID token
-            let! tag = AzureTable.getTag userID token
-            
-            let! position = AzureTable.getPlayListPosition userID token 
-            let position = position |> Option.map (fun p -> p.Position - 1) |> Option.defaultValue 0
-            
-            let! tag =
-                match tag with
-                | Some t -> mapBlobMusikTag t
-                | _ -> 
-                    let t = { 
-                        Token = token
-                        UserID = userID
-                        Action = TagAction.UnknownTag
-                        LastVerified = DateTimeOffset.MinValue
-                        Description = ""
-                        Object = "" }
-                    task { return t }
+            match! AzureTable.getUser userID with
+            | None ->
+                return! Response.notFound ctx userID
+            | Some user ->
+                let! tag = AzureTable.getTag userID token
 
-            let! tag = mapYoutube tag
-            let tag : TagForBox = { 
-                Token = tag.Token
-                Object = tag.Object
-                Description = tag.Description
-                Action = TagActionForBox.GetFromTagAction(tag.Action,position) } 
-            
-            let! _ = AzureTable.savePlayListPosition userID token position
-            
-            let txt = TagForBox.Encoder tag |> Encode.toString 0
-            return! setBodyFromString txt next ctx
+                let! position = AzureTable.getPlayListPosition userID token
+                let position = position |> Option.map (fun p -> p.Position - 1) |> Option.defaultValue 0
+
+                let! tag =
+                    match tag with
+                    | Some t -> mapBlobMusikTag t
+                    | _ ->
+                        let t = {
+                            Token = token
+                            UserID = userID
+                            Action = TagAction.UnknownTag
+                            LastVerified = DateTimeOffset.MinValue
+                            Description = ""
+                            Object = "" }
+                        task { return t }
+
+                let! tag = mapYoutube tag
+                let! _ = AzureTable.savePlayListPosition userID token position
+
+                match user.SpeakerType with
+                | SpeakerType.Local ->
+                    let! tag = mapYoutube tag
+                    let tag : TagForBox = {
+                        Token = tag.Token
+                        Object = tag.Object
+                        Description = tag.Description
+                        Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
+
+
+                    let txt = TagForBox.Encoder tag |> Encode.toString 0
+                    return! setBodyFromString txt next ctx
+                | SpeakerType.Sonos ->
+                    let logger = ctx.GetLogger "NextFile"
+                    let! session = createOrJoinSession logger accessToken group
+                    do! playStream logger accessToken session tag
+
+                    let tag : TagForBox = {
+                        Token = tag.Token
+                        Object = tag.Object
+                        Description = tag.Description
+                        Action = TagActionForBox.Ignore }
+
+                    let txt = TagForBox.Encoder tag |> Encode.toString 0
+                    return! setBodyFromString txt next ctx
         })
     }
 

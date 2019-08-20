@@ -1,5 +1,8 @@
 # Release Notes
 
+## 1.5.0 - 2019-08-20
+* Sonos support
+
 ## 1.4.22 - 2019-08-20
 * Update deps
 * Use --self-contained for Firmware

@@ -246,6 +246,17 @@ let userTagsEndPoint userID =
         })
     }
 
+
+let volumeUpEndpoint userID =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let! tags = AzureTable.getAllTagsForUser userID
+            let txt = TagList.Encoder { Tags = tags } |> Encode.toString 0
+            return! setBodyFromString txt next ctx
+        })
+    }
+
 let historyEndPoint userID =
     pipeline {
         set_header "Content-Type" "application/json"
@@ -336,6 +347,8 @@ let webApp =
         getf "/api/nextfile/%s/%s" nextFileEndpoint
         getf "/api/previousfile/%s/%s" previousFileEndpoint
         getf "/api/usertags/%s" userTagsEndPoint
+        postf "/api/volumeup/%s" volumeUpEndpoint
+        postf "/api/volumedown/%s" volumeUpEndpoint
         postf "/api/upload/%s" uploadEndpoint
         getf "/api/history/%s" historyEndPoint
         get "/api/startup" startupEndpoint

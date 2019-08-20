@@ -126,6 +126,12 @@ let volumeUp (model:Model) = task {
     ()
 }
 
+let volumeDown (model:Model) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf @"%s/api/volumedown/%s" model.TagServer model.UserID
+    let! _result = webClient.DownloadStringTaskAsync(System.Uri url)
+    ()
+}
 
 let nextFile (model:Model,token:string) = task {
     use webClient = new System.Net.WebClient()
@@ -161,11 +167,19 @@ let update (msg:Msg) (model:Model) =
     match msg with
     | VolumeUp ->
         let vol = min 1. (model.Volume + 0.1)
-        { model with Volume = vol }, Cmd.OfFunc.either setVolumeScript vol Noop Err
+        { model with Volume = vol },
+            Cmd.batch [
+                Cmd.OfFunc.either setVolumeScript vol Noop Err
+                Cmd.OfTask.attempt volumeUp model Err
+            ]
 
     | VolumeDown ->
         let vol = max 0. (model.Volume - 0.1)
-        { model with Volume = vol }, Cmd.OfFunc.either setVolumeScript vol Noop Err
+        { model with Volume = vol },
+            Cmd.batch [
+                Cmd.OfFunc.either setVolumeScript vol Noop Err
+                Cmd.OfTask.attempt volumeDown model Err
+            ]
 
     | NewRFID rfid ->
         { model with RFID = Some rfid }, Cmd.OfTask.either nextFile (model,rfid) NewTag Err

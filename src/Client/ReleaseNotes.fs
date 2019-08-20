@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "1.5.7"
+let Version = "1.5.8"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 1.5.7 - 2019-08-20
+## 1.5.8 - 2019-08-20
 * Sonos support
 
 ## 1.4.22 - 2019-08-20

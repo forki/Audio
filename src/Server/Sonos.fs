@@ -106,9 +106,10 @@ let playStream (log:ILogger) accessToken (session:Session) (tag:Tag) = task {
       "itemId" : "%s"
     }"""                stream.[0] (tag.Object + " - " + tag.Description) tag.Token
 
+        log.LogCritical(body)
 
         let! result = post log url headers body
-        log.LogTrace(result)
+        log.LogCritical(result)
     | _ ->
         log.LogError(sprintf "TagAction %A can't be played on Sonos" tag.Action)
 }

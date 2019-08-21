@@ -1,6 +1,6 @@
 # Release Notes
 
-## 1.5.16 - 2019-08-21
+## 1.5.17 - 2019-08-21
 * Sonos support
 * Removed Youtube
 

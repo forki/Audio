@@ -90,28 +90,29 @@ let volumeDown (log:ILogger) accessToken group = task {
 }
 
 
-
-let playStream (log:ILogger) accessToken (session:Session) (tag:Tag) position = task {
+let playURL (log:ILogger) accessToken (session:Session) itemID mediaURL description = task {
     let headers = ["Authorization", "Bearer " + accessToken]
     let url = sprintf "https://api.ws.sonos.com/control/api/v1/playbackSessions/%s/playbackSession/loadStreamUrl" session.ID
 
-
-    match tag.Action with
-    | TagAction.PlayMusik stream ->
-        let pos = System.Math.Abs(position % stream.Length)
-        let body = sprintf """{
+    let body = sprintf """{
       "streamUrl": "%s",
       "playOnCompletion": true,
       "stationMetadata": {
         "name": "%s"
       },
       "itemId" : "%s"
-    }"""                stream.[pos] (tag.Object + " - " + tag.Description) tag.Token
+    }"""                mediaURL description itemID
 
-        log.LogCritical(body)
 
-        let! _result = post log url headers body
-        ()
+    let! _result = post log url headers body
+    ()
+}
+
+let playStream (log:ILogger) accessToken (session:Session) (tag:Tag) position = task {
+    match tag.Action with
+    | TagAction.PlayMusik stream ->
+        let pos = System.Math.Abs(position % stream.Length)
+        do! playURL log accessToken session tag.Token stream.[pos] (tag.Object + " - " + tag.Description)
     | _ ->
         log.LogError(sprintf "TagAction %A can't be played on Sonos" tag.Action)
 }

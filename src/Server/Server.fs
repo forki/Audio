@@ -241,18 +241,33 @@ let historyEndPoint userID =
         })
     }
 
-let startupEndpoint =
+let startupEndpoint userID =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
-            let action = TagActionForBox.PlayMusik sas
+            match! AzureTable.getUser userID with
+            | None ->
+                return! Response.notFound ctx userID
+            | Some user ->
+                let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
 
-            let txt =
-                action
-                |> TagActionForBox.Encoder
-                |> Encode.toString 0
-            return! setBodyFromString txt next ctx
+                match user.SpeakerType with
+                | SpeakerType.Local ->
+                    let txt =
+                        TagActionForBox.PlayMusik sas
+                        |> TagActionForBox.Encoder
+                        |> Encode.toString 0
+                    return! setBodyFromString txt next ctx
+                | SpeakerType.Sonos ->
+                    let logger = ctx.GetLogger "Startup"
+                    let! session = Sonos.createOrJoinSession logger user.SonosAccessToken Sonos.group
+                    do! Sonos.playURL logger user.SonosAccessToken session "StartupSound" sas "StartupSound"
+
+                    let txt =
+                        TagActionForBox.Ignore
+                        |> TagActionForBox.Encoder
+                        |> Encode.toString 0
+                    return! setBodyFromString txt next ctx
         })
     }
 
@@ -293,7 +308,7 @@ let webApp =
         getf "/api/volumedown/%s" volumeDownEndpoint
         postf "/api/upload/%s" uploadEndpoint
         getf "/api/history/%s" historyEndPoint
-        get "/api/startup" startupEndpoint
+        getf "/api/startup/%s" startupEndpoint
         get "/api/firmware" firmwareEndpoint
         get "/api/latestfirmware" getLatestFirmware
         getf "/api/taghistorysocket/%s" (TagHistorySocket.openSocket tagHistoryBroadcaster)

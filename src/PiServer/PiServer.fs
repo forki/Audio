@@ -155,7 +155,7 @@ let previousFile (model:Model,token:string) = task {
 
 let getStartupAction (model:Model) = task {
     use webClient = new System.Net.WebClient()
-    let url = sprintf @"%s/api/startup" model.TagServer
+    let url = sprintf @"%s/api/startup/%s" model.TagServer model.UserID
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
     match Decode.fromString (TagActionForBox.Decoder) result with

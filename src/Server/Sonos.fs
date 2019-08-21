@@ -49,10 +49,9 @@ type Session =
             { ID = get.Required.Field "sessionId" Decode.string }
         )
 
-
 let playModeToSingle (log:ILogger) accessToken group = task {
     let headers = ["Authorization", "Bearer " + accessToken]
-    let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playBack/playMode" group
+    let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playback/playMode" group
     let body = """{
     "playModes": {
       "repeat": false,
@@ -66,6 +65,7 @@ let playModeToSingle (log:ILogger) accessToken group = task {
 
     ()
 }
+
 let createOrJoinSession (log:ILogger) accessToken group = task {
     let headers = ["Authorization", "Bearer " + accessToken]
     let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playbackSession" group

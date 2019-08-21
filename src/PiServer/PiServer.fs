@@ -109,10 +109,10 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
 }
 
 
-let init nodeServices : Model * Cmd<Msg> =
+let init userID nodeServices : Model * Cmd<Msg> =
     { Playing = None
       FirmwareUpdateInterval = TimeSpan.FromHours 1.
-      UserID = Utils.getMACAddress()
+      UserID = userID
       TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
       Volume = 0.5 // TODO: load from webserver
       RFID = None
@@ -283,6 +283,8 @@ let builder = application {
 
 let aspnetapp = builder.Build()
 aspnetapp.Start()
+let userID = Utils.getMACAddress()
+log.InfoFormat("UserID: {0}", userID)
 log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
 let nodeServices = aspnetapp.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
@@ -293,7 +295,7 @@ let view (model:Model) dispatch : Audio =
     | _ -> { Url = None; Volume = model.Volume }
 
 let app =
-    Program.mkProgram init update view
+    Program.mkProgram (init userID) update view
     |> Program.withTrace (fun msg _model -> log.InfoFormat("{0}", msg))
     |> Program.withAudio PlayerStopped
 

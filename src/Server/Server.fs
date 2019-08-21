@@ -283,8 +283,7 @@ let tagHistoryBroadcaster = ConnectionManager()
 let t = task {
     while true do
         let body = Encode.Auto.toString(0, TagHistorySocketEvent.ToDo)
-        printfn "Sending"
-        do! tagHistoryBroadcaster.BroadcastTextAsync(body,key = "B827EB8E6CA5")
+        do! tagHistoryBroadcaster.BroadcastTextAsync(body,key = "B827EBA39A31")
         do! Task.Delay (1000 * 60 * 20)
 }
 

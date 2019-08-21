@@ -126,9 +126,7 @@ let connection = CloudStorageAccount.Parse storageConnectionString
 let tagsTable = getTable "tags" connection
 let usersTable = getTable "users" connection
 let positionsTable = getTable "positions" connection
-let linksTable = getTable "links" connection
 let requestsTable = getTable "requests" connection
-
 
 open ServerCore.Domain
 open Thoth.Json.Net
@@ -181,22 +179,6 @@ let saveTag (tag:Tag) =
     entity.Properties.["LastVerified"] <- EntityProperty.GeneratePropertyForDateTimeOffset(Nullable tag.LastVerified)
     let operation = TableOperation.InsertOrReplace entity
     tagsTable.ExecuteAsync operation
-
-
-let saveLinks (tag:Tag) (urls:string []) = task {
-    let batch = TableBatchOperation()
-    let mutable i = 0
-    for url in urls do
-        let entity = DynamicTableEntity()
-        entity.PartitionKey <- tag.Token
-        entity.RowKey <- string i
-        entity.Properties.["Url"] <- EntityProperty.GeneratePropertyForString url
-        batch.InsertOrReplace entity
-        i <- i + 1
-    if i > 0 then
-        let! _ = linksTable.ExecuteBatchAsync batch
-        ()
-}
 
 let saveRequest (userID:string) (token:string) =
     let entity = DynamicTableEntity()
@@ -295,19 +277,3 @@ let getAllTags () = task {
     return [| for result in results -> mapTag result |]
 }
 
-let getAllLinksForTag (tagToken:string) = task {
-    let rec getResults token = task {
-        let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, tagToken)
-        let! result = linksTable.ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
-        let token = result.ContinuationToken
-        let result = result |> Seq.toList
-        if isNull token then
-            return result
-        else
-            let! others = getResults token
-            return result @ others }
-
-    let! results = getResults null
-
-    return [| for result in results -> mapLink result |]
-}

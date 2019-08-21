@@ -63,42 +63,6 @@ let mapBlobMusikTag (tag:Tag) = task {
     | _ -> return tag
 }
 
-
-let discoverYoutubeLink (youtubeURL:string) = task {
-    let lines = System.Collections.Generic.List<_>()
-    let proc = new Process ()
-    let startInfo = ProcessStartInfo()
-    startInfo.FileName <- "/usr/local/bin/youtube-dl"
-    startInfo.Arguments <- sprintf " -g \"%s\"" youtubeURL
-    startInfo.UseShellExecute <- false
-    startInfo.RedirectStandardOutput <- true
-    startInfo.RedirectStandardError <- true
-    startInfo.CreateNoWindow <- true
-    proc.StartInfo <- startInfo
-
-    proc.Start() |> ignore
-
-    while not proc.StandardOutput.EndOfStream do
-        let! line = proc.StandardOutput.ReadLineAsync()
-        lines.Add line
-
-    while not proc.StandardError.EndOfStream do
-        let! line = proc.StandardError.ReadLineAsync()
-        lines.Add line
-
-    let lines = Seq.toArray lines
-    return youtubeURL,lines
-}
-
-let mapYoutube (tag:Tag) = task {
-    match tag.Action with
-    | TagAction.PlayYoutube _ ->
-        let! links = getAllLinksForTag tag.Token
-        let links = links |> Array.map (fun l -> l.Url)
-        return { tag with Action = TagAction.PlayMusik links }
-    | _ -> return tag
-}
-
 let uploadEndpoint (userID:string) =
     pipeline {
         set_header "Content-Type" "application/json"
@@ -151,7 +115,6 @@ let previousFileEndpoint (userID,token) =
                             Object = "" }
                         task { return t }
 
-                let! tag = mapYoutube tag
                 match user.SpeakerType with
                 | SpeakerType.Local ->
                     let tag : TagForBox = {
@@ -206,7 +169,6 @@ let nextFileEndpoint (userID,token) =
                             Object = "" }
                         task { return t }
 
-                let! tag = mapYoutube tag
                 let! _ = AzureTable.savePlayListPosition userID token position
 
                 match user.SpeakerType with
@@ -315,37 +277,6 @@ let firmwareEndpoint =
         })
     }
 
-let discoverYoutube() = task {
-    try
-        let! tags = getAllTags()
-        for tag in tags do
-            try
-                match tag.Action with
-                | TagAction.PlayYoutube url ->
-                    let! _,urls = discoverYoutubeLink url
-                    let urls =
-                        urls
-                        |> Array.filter (fun x -> x.Contains "&mime=audio")
-                    let! _ = saveLinks tag urls
-                    let! _ = saveTag { tag with LastVerified = DateTimeOffset.UtcNow }
-                    ()
-                | _ -> ()
-            with
-            | _ -> ()
-    with
-    | _ -> ()
-}
-
-let youtubeEndpoint =
-    pipeline {
-        set_header "Content-Type" "application/json"
-        plug (fun next ctx -> task {
-            do! discoverYoutube()
-            let! _,urls = discoverYoutubeLink "https://www.youtube.com/watch?v=DeTePthFfDY"
-            let txt = sprintf "%A" urls
-            return! setBodyFromString txt next ctx
-        })
-    }
 
 let tagHistoryBroadcaster = ConnectionManager()
 
@@ -368,7 +299,6 @@ let webApp =
         getf "/api/history/%s" historyEndPoint
         get "/api/startup" startupEndpoint
         get "/api/firmware" firmwareEndpoint
-        get "/api/youtube" youtubeEndpoint
         get "/api/latestfirmware" getLatestFirmware
         getf "/api/taghistorysocket/%s" (TagHistorySocket.openSocket tagHistoryBroadcaster)
     }
@@ -387,13 +317,6 @@ let app = application {
     service_config configureSerialization
     use_gzip
     app_config configureApp
-}
-
-let discoverTask = task {
-    while true do
-        do! discoverYoutube()
-        do! Task.Delay (1000 * 60 * 20)
-    return ()
 }
 
 run app

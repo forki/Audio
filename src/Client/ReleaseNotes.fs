@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "1.5.15"
+let Version = "1.5.16"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 1.5.15 - 2019-08-21
+## 1.5.16 - 2019-08-21
 * Sonos support
 * Removed Youtube
 

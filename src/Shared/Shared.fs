@@ -108,17 +108,10 @@ type TagActionForBox =
             Decode.field "PlayMusik" Decode.string |> Decode.map TagActionForBox.PlayMusik
         ]
 
-type Link = {
-    Token : string
-    Url : string
-    Order : int
-}
-
 type Tag =
     { Token : string
       Object : string
       Description : string
-      LastVerified : DateTimeOffset
       UserID : string
       Action : TagAction }
 
@@ -128,7 +121,6 @@ type Tag =
             "Description", Encode.string tag.Description
             "UserID", Encode.string tag.UserID
             "Object", Encode.string tag.Object
-            "LastVerified", Encode.datetimeOffset tag.LastVerified
             "Action", TagAction.Encoder tag.Action
         ]
     static member Decoder =
@@ -137,9 +129,6 @@ type Tag =
               Object = get.Required.Field "Object" Decode.string
               Description = get.Required.Field "Description" Decode.string
               UserID = get.Required.Field "UserID" Decode.string
-              LastVerified =
-                    get.Optional.Field "LastVerified" Decode.datetimeOffset
-                    |> Option.defaultValue DateTimeOffset.MinValue
               Action = get.Required.Field "Action" TagAction.Decoder }
         )
 

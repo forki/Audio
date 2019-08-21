@@ -79,7 +79,6 @@ let uploadEndpoint (userID:string) =
                     Token = System.Guid.NewGuid().ToString()
                     Action = tagAction
                     Description = ""
-                    LastVerified = DateTimeOffset.UtcNow
                     UserID = userID
                     Object = "" }
                 let! _saved = AzureTable.saveTag tag
@@ -110,7 +109,6 @@ let previousFileEndpoint (userID,token) =
                             Token = token
                             UserID = userID
                             Action = TagAction.UnknownTag
-                            LastVerified = DateTimeOffset.MinValue
                             Description = ""
                             Object = "" }
                         task { return t }
@@ -128,7 +126,7 @@ let previousFileEndpoint (userID,token) =
                 | SpeakerType.Sonos ->
                     let logger = ctx.GetLogger "PreviousFile"
                     let! session = Sonos.createOrJoinSession logger user.SonosAccessToken Sonos.group
-                    do! Sonos.playStream logger user.SonosAccessToken session tag
+                    do! Sonos.playStream logger user.SonosAccessToken session tag position
 
                     let tag : TagForBox = {
                         Token = tag.Token
@@ -164,7 +162,6 @@ let nextFileEndpoint (userID,token) =
                             Token = token
                             UserID = userID
                             Action = TagAction.UnknownTag
-                            LastVerified = DateTimeOffset.MinValue
                             Description = ""
                             Object = "" }
                         task { return t }
@@ -184,7 +181,7 @@ let nextFileEndpoint (userID,token) =
                 | SpeakerType.Sonos ->
                     let logger = ctx.GetLogger "NextFile"
                     let! session = Sonos.createOrJoinSession logger user.SonosAccessToken Sonos.group
-                    do! Sonos.playStream logger user.SonosAccessToken session tag
+                    do! Sonos.playStream logger user.SonosAccessToken session tag position
 
                     let tag : TagForBox = {
                         Token = tag.Token

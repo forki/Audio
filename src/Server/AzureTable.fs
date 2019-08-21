@@ -5,7 +5,6 @@ open Microsoft.WindowsAzure.Storage.Table
 open System.Threading.Tasks
 open FSharp.Control.Tasks.ContextInsensitive
 
-
 let getTable tableName (connection: CloudStorageAccount) =
     async {
         let client = connection.CreateCloudTableClient()
@@ -133,17 +132,11 @@ open Thoth.Json.Net
 open System
 
 
-let mapLink (entity: DynamicTableEntity) : Link =
-    { Token = entity.PartitionKey
-      Order = int entity.RowKey
-      Url = getStringProperty "Url" entity }
-
 let mapTag (entity: DynamicTableEntity) : Tag =
     { UserID = entity.PartitionKey
       Token = entity.RowKey
       Description = getStringProperty "Description" entity
       Object = getStringProperty "Object" entity
-      LastVerified = getOptionalDateTimeOffsetProperty "LastVerified" entity |> Option.defaultValue DateTimeOffset.MinValue
       Action =
         match Decode.fromString TagAction.Decoder (getStringProperty "Action" entity) with
         | Error msg -> failwith msg
@@ -176,7 +169,6 @@ let saveTag (tag:Tag) =
     entity.Properties.["Action"] <- EntityProperty.GeneratePropertyForString (TagAction.Encoder tag.Action |> Encode.toString 0)
     entity.Properties.["Description"] <- EntityProperty.GeneratePropertyForString tag.Description
     entity.Properties.["Object"] <- EntityProperty.GeneratePropertyForString tag.Object
-    entity.Properties.["LastVerified"] <- EntityProperty.GeneratePropertyForDateTimeOffset(Nullable tag.LastVerified)
     let operation = TableOperation.InsertOrReplace entity
     tagsTable.ExecuteAsync operation
 

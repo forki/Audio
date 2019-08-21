@@ -49,6 +49,23 @@ type Session =
             { ID = get.Required.Field "sessionId" Decode.string }
         )
 
+
+let playModeToSingle (log:ILogger) accessToken group = task {
+    let headers = ["Authorization", "Bearer " + accessToken]
+    let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playBack/playMode" group
+    let body = """{
+    "playModes": {
+      "repeat": false,
+      "repeatOne": false,
+      "crossfade": false,
+      "shuffle": false
+    }
+  }"""
+
+    let! _result = post log url headers body
+
+    ()
+}
 let createOrJoinSession (log:ILogger) accessToken group = task {
     let headers = ["Authorization", "Bearer " + accessToken]
     let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playbackSession" group
@@ -62,7 +79,9 @@ let createOrJoinSession (log:ILogger) accessToken group = task {
 
     match Decode.fromString Session.Decoder result with
     | Error msg -> return failwith msg
-    | Ok session -> return session
+    | Ok session ->
+        do! playModeToSingle log accessToken group
+        return session
 }
 
 let volumeUp (log:ILogger) accessToken group = task {

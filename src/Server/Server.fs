@@ -88,6 +88,15 @@ let uploadEndpoint (userID:string) =
         })
     }
 
+let sonosEventEndpoint =
+    pipeline {
+        set_header "Content-Type" "application/json"
+        plug (fun next ctx -> task {
+            let! body = ctx.ReadBodyFromRequestAsync()
+            return! failwithf "from sonos: %s" body
+        })
+    }
+
 let previousFileEndpoint (userID,token) =
     pipeline {
         set_header "Content-Type" "application/json"
@@ -302,6 +311,7 @@ let t = task {
 let webApp =
     router {
         getf "/api/nextfile/%s/%s" nextFileEndpoint
+        post "/sonosevent" sonosEventEndpoint
         getf "/api/previousfile/%s/%s" previousFileEndpoint
         getf "/api/usertags/%s" userTagsEndPoint
         getf "/api/volumeup/%s" volumeUpEndpoint

@@ -117,7 +117,8 @@ let playURL (log:ILogger) accessToken (session:Session) itemID mediaURL descript
       "streamUrl": "%s",
       "playOnCompletion": true,
       "stationMetadata": {
-        "name": "%s"
+        "name": "%s",
+        "type": "track"
       },
       "itemId" : "%s"
     }"""                mediaURL description itemID

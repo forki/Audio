@@ -88,14 +88,6 @@ let uploadEndpoint (userID:string) =
         })
     }
 
-let sonosEventEndpoint =
-    pipeline {
-        set_header "Content-Type" "application/json"
-        plug (fun next ctx -> task {
-            let! body = ctx.ReadBodyFromRequestAsync()
-            return! failwithf "from sonos: %s" body
-        })
-    }
 
 let previousFileEndpoint (userID,token) =
     pipeline {
@@ -122,29 +114,14 @@ let previousFileEndpoint (userID,token) =
                             Object = "" }
                         task { return t }
 
-                match user.SpeakerType with
-                | SpeakerType.Local ->
-                    let tag : TagForBox = {
-                        Token = tag.Token
-                        Object = tag.Object
-                        Description = tag.Description
-                        Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
+                let tag : TagForBox = {
+                    Token = tag.Token
+                    Object = tag.Object
+                    Description = tag.Description
+                    Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
 
-                    let txt = TagForBox.Encoder tag |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
-                | SpeakerType.Sonos ->
-                    let logger = ctx.GetLogger "PreviousFile"
-                    let! session = Sonos.createOrJoinSession logger user.SonosAccessToken Sonos.group
-                    do! Sonos.playStream logger user.SonosAccessToken session tag position
-
-                    let tag : TagForBox = {
-                        Token = tag.Token
-                        Object = tag.Object
-                        Description = tag.Description
-                        Action = TagActionForBox.Ignore }
-
-                    let txt = TagForBox.Encoder tag |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
+                let txt = TagForBox.Encoder tag |> Encode.toString 0
+                return! setBodyFromString txt next ctx
         })
     }
 
@@ -177,29 +154,14 @@ let nextFileEndpoint (userID,token) =
 
                 let! _ = AzureTable.savePlayListPosition userID token position
 
-                match user.SpeakerType with
-                | SpeakerType.Local ->
-                    let tag : TagForBox = {
-                        Token = tag.Token
-                        Object = tag.Object
-                        Description = tag.Description
-                        Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
+                let tag : TagForBox = {
+                    Token = tag.Token
+                    Object = tag.Object
+                    Description = tag.Description
+                    Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
 
-                    let txt = TagForBox.Encoder tag |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
-                | SpeakerType.Sonos ->
-                    let logger = ctx.GetLogger "NextFile"
-                    let! session = Sonos.createOrJoinSession logger user.SonosAccessToken Sonos.group
-                    do! Sonos.playStream logger user.SonosAccessToken session tag position
-
-                    let tag : TagForBox = {
-                        Token = tag.Token
-                        Object = tag.Object
-                        Description = tag.Description
-                        Action = TagActionForBox.Ignore }
-
-                    let txt = TagForBox.Encoder tag |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
+                let txt = TagForBox.Encoder tag |> Encode.toString 0
+                return! setBodyFromString txt next ctx
         })
     }
 
@@ -222,7 +184,7 @@ let volumeUpEndpoint userID =
                 return! Response.notFound ctx userID
             | Some user ->
                 let logger = ctx.GetLogger "VolumeUp"
-                do! Sonos.volumeUp logger user.SonosAccessToken Sonos.group
+                //do! Sonos.volumeUp logger user.SonosAccessToken Sonos.group
                 return! Response.ok ctx userID
         })
     }
@@ -235,7 +197,7 @@ let volumeDownEndpoint userID =
                 return! Response.notFound ctx userID
             | Some user ->
                 let logger = ctx.GetLogger "VolumeDown"
-                do! Sonos.volumeDown logger user.SonosAccessToken Sonos.group
+                //do! Sonos.volumeDown logger user.SonosAccessToken Sonos.group
                 return! Response.ok ctx userID
         })
     }
@@ -260,23 +222,11 @@ let startupEndpoint userID =
             | Some user ->
                 let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
 
-                match user.SpeakerType with
-                | SpeakerType.Local ->
-                    let txt =
-                        TagActionForBox.PlayMusik sas
-                        |> TagActionForBox.Encoder
-                        |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
-                | SpeakerType.Sonos ->
-                    let logger = ctx.GetLogger "Startup"
-                    let! session = Sonos.createOrJoinSession logger user.SonosAccessToken Sonos.group
-                    do! Sonos.playURL logger user.SonosAccessToken session "StartupSound" sas "StartupSound"
-
-                    let txt =
-                        TagActionForBox.Ignore
-                        |> TagActionForBox.Encoder
-                        |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
+                let txt =
+                    TagActionForBox.PlayMusik sas
+                    |> TagActionForBox.Encoder
+                    |> Encode.toString 0
+                return! setBodyFromString txt next ctx
         })
     }
 
@@ -311,7 +261,6 @@ let t = task {
 let webApp =
     router {
         getf "/api/nextfile/%s/%s" nextFileEndpoint
-        post "/sonosevent" sonosEventEndpoint
         getf "/api/previousfile/%s/%s" previousFileEndpoint
         getf "/api/usertags/%s" userTagsEndPoint
         getf "/api/volumeup/%s" volumeUpEndpoint

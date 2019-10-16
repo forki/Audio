@@ -10,7 +10,6 @@
     <Compile Include="AzureTable.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="TagHistorySocket.fs" />
-    <Compile Include="Sonos.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

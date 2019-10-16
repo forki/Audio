@@ -132,50 +132,16 @@ type Tag =
               Action = get.Required.Field "Action" TagAction.Decoder }
         )
 
-[<RequireQualifiedAccess>]
-type SpeakerType =
-| Local
-| Sonos
-
-    static member Encoder (action : SpeakerType) =
-        match action with
-        | Local ->
-            Encode.object [
-                "Local", Encode.nil
-            ]
-        | Sonos ->
-            Encode.object [
-                "Sonos", Encode.nil
-            ]
-
-    static member Decoder =
-        Decode.oneOf [
-            Decode.field "Local" (Decode.succeed SpeakerType.Local)
-            Decode.field "Sonos" (Decode.succeed SpeakerType.Sonos)
-        ]
-
 type User =
-    { UserID : string
-      SpeakerType : SpeakerType
-      SonosAccessToken : string
-      SonosRefreshToken : string
-      SonosID : string }
+    { UserID : string }
 
     static member Encoder (user : User) =
         Encode.object [
             "UserID", Encode.string user.UserID
-            "SpeakerType", SpeakerType.Encoder user.SpeakerType
-            "SonosAccessToken", Encode.string user.SonosAccessToken
-            "SonosRefreshToken", Encode.string user.SonosRefreshToken
-            "SonosID", Encode.string user.SonosID
         ]
     static member Decoder =
         Decode.object (fun get ->
-            { UserID = get.Required.Field "UserID" Decode.string
-              SpeakerType = get.Required.Field "SpeakerType" SpeakerType.Decoder
-              SonosAccessToken = get.Required.Field "SonosAccessToken" Decode.string
-              SonosRefreshToken = get.Required.Field "SonosRefreshToken" Decode.string
-              SonosID = get.Required.Field "SonosID" Decode.string }
+            { UserID = get.Required.Field "UserID" Decode.string }
         )
 
 type Request =

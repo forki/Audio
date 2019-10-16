@@ -143,14 +143,7 @@ let mapTag (entity: DynamicTableEntity) : Tag =
         | Ok action -> action }
 
 let mapUser (entity: DynamicTableEntity) : User =
-    { UserID = entity.RowKey
-      SonosID = getStringProperty "SonosID" entity
-      SonosAccessToken = getStringProperty "SonosAccessToken" entity
-      SonosRefreshToken = getStringProperty "SonosRefreshToken" entity
-      SpeakerType =
-        match Decode.fromString SpeakerType.Decoder (getStringProperty "SpeakerType" entity) with
-        | Error msg -> failwith msg
-        | Ok action -> action }
+    { UserID = entity.RowKey }
 
 let mapRequest (entity: DynamicTableEntity) : Request =
     { UserID = entity.PartitionKey

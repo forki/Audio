@@ -109,15 +109,29 @@ let rfidLoop (dispatch,nodeServices:INodeServices) = task {
 }
 
 
-let init nodeServices : Model * Cmd<Msg> =
+let init userID nodeServices : Model * Cmd<Msg> =
     { Playing = None
       FirmwareUpdateInterval = TimeSpan.FromHours 1.
-      UserID = Utils.getMACAddress()
+      UserID = userID
       TagServer = "https://audio-hub.azurewebsites.net" // TODO: load from some config
       Volume = 0.5 // TODO: load from webserver
       RFID = None
       NodeServices = nodeServices }, Cmd.ofMsg CheckFirmware
 
+
+let volumeUp (model:Model) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf @"%s/api/volumeup/%s" model.TagServer model.UserID
+    let! _result = webClient.DownloadStringTaskAsync(System.Uri url)
+    ()
+}
+
+let volumeDown (model:Model) = task {
+    use webClient = new System.Net.WebClient()
+    let url = sprintf @"%s/api/volumedown/%s" model.TagServer model.UserID
+    let! _result = webClient.DownloadStringTaskAsync(System.Uri url)
+    ()
+}
 
 let nextFile (model:Model,token:string) = task {
     use webClient = new System.Net.WebClient()
@@ -141,7 +155,7 @@ let previousFile (model:Model,token:string) = task {
 
 let getStartupAction (model:Model) = task {
     use webClient = new System.Net.WebClient()
-    let url = sprintf @"%s/api/startup" model.TagServer
+    let url = sprintf @"%s/api/startup/%s" model.TagServer model.UserID
     let! result = webClient.DownloadStringTaskAsync(System.Uri url)
 
     match Decode.fromString (TagActionForBox.Decoder) result with
@@ -153,11 +167,19 @@ let update (msg:Msg) (model:Model) =
     match msg with
     | VolumeUp ->
         let vol = min 1. (model.Volume + 0.1)
-        { model with Volume = vol }, Cmd.OfFunc.either setVolumeScript vol Noop Err
+        { model with Volume = vol },
+            Cmd.batch [
+                Cmd.OfFunc.either setVolumeScript vol Noop Err
+                Cmd.OfTask.attempt volumeUp model Err
+            ]
 
     | VolumeDown ->
         let vol = max 0. (model.Volume - 0.1)
-        { model with Volume = vol }, Cmd.OfFunc.either setVolumeScript vol Noop Err
+        { model with Volume = vol },
+            Cmd.batch [
+                Cmd.OfFunc.either setVolumeScript vol Noop Err
+                Cmd.OfTask.attempt volumeDown model Err
+            ]
 
     | NewRFID rfid ->
         { model with RFID = Some rfid }, Cmd.OfTask.either nextFile (model,rfid) NewTag Err
@@ -261,6 +283,8 @@ let builder = application {
 
 let aspnetapp = builder.Build()
 aspnetapp.Start()
+let userID = Utils.getMACAddress()
+log.InfoFormat("UserID: {0}", userID)
 log.InfoFormat("PiServer {0} started.", ReleaseNotes.Version)
 let nodeServices = aspnetapp.Services.GetService(typeof<INodeServices>) :?> INodeServices
 
@@ -271,7 +295,7 @@ let view (model:Model) dispatch : Audio =
     | _ -> { Url = None; Volume = model.Volume }
 
 let app =
-    Program.mkProgram init update view
+    Program.mkProgram (init userID) update view
     |> Program.withTrace (fun msg _model -> log.InfoFormat("{0}", msg))
     |> Program.withAudio PlayerStopped
 

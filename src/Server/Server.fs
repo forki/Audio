@@ -1,3 +1,5 @@
+module Server
+
 open System.IO
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
@@ -61,42 +63,6 @@ let mapBlobMusikTag (tag:Tag) = task {
     | _ -> return tag
 }
 
-
-let discoverYoutubeLink (youtubeURL:string) = task {
-    let lines = System.Collections.Generic.List<_>()
-    let proc = new Process ()
-    let startInfo = ProcessStartInfo()
-    startInfo.FileName <- "/usr/local/bin/youtube-dl"
-    startInfo.Arguments <- sprintf " -g \"%s\"" youtubeURL
-    startInfo.UseShellExecute <- false
-    startInfo.RedirectStandardOutput <- true
-    startInfo.RedirectStandardError <- true
-    startInfo.CreateNoWindow <- true
-    proc.StartInfo <- startInfo
-
-    proc.Start() |> ignore
-
-    while not proc.StandardOutput.EndOfStream do
-        let! line = proc.StandardOutput.ReadLineAsync()
-        lines.Add line
-
-    while not proc.StandardError.EndOfStream do
-        let! line = proc.StandardError.ReadLineAsync()
-        lines.Add line
-
-    let lines = Seq.toArray lines
-    return youtubeURL,lines
-}
-
-let mapYoutube (tag:Tag) = task {
-    match tag.Action with
-    | TagAction.PlayYoutube _ ->
-        let! links = getAllLinksForTag tag.Token
-        let links = links |> Array.map (fun l -> l.Url)
-        return { tag with Action = TagAction.PlayMusik links }
-    | _ -> return tag
-}
-
 let uploadEndpoint (userID:string) =
     pipeline {
         set_header "Content-Type" "application/json"
@@ -113,7 +79,6 @@ let uploadEndpoint (userID:string) =
                     Token = System.Guid.NewGuid().ToString()
                     Action = tagAction
                     Description = ""
-                    LastVerified = DateTimeOffset.UtcNow
                     UserID = userID
                     Object = "" }
                 let! _saved = AzureTable.saveTag tag
@@ -123,89 +88,6 @@ let uploadEndpoint (userID:string) =
         })
     }
 
-let group = "RINCON_347E5CF009E001400:3169659583"
-
-open System.Net
-open Microsoft.Extensions.Logging
-
-let post (log:ILogger) (url:string) headers (data:string) = task {
-    let req = HttpWebRequest.Create(url) :?> HttpWebRequest
-    req.ProtocolVersion <- HttpVersion.Version10
-    req.Method <- "POST"
-
-    for (name:string),(value:string) in headers do
-        req.Headers.Add(name,value) |> ignore
-
-    let postBytes = System.Text.Encoding.UTF8.GetBytes(data)
-    req.ContentType <- "application/json; charset=utf-8"
-    req.ContentLength <- int64 postBytes.Length
-
-    try
-        // Write data to the request
-        use reqStream = req.GetRequestStream()
-        do! reqStream.WriteAsync(postBytes, 0, postBytes.Length)
-        reqStream.Close()
-
-        use resp = req.GetResponse()
-        use stream = resp.GetResponseStream()
-        use reader = new StreamReader(stream)
-        let! html = reader.ReadToEndAsync()
-        return html
-    with
-    | :? WebException as exn when not (isNull exn.Response) ->
-        use errorResponse = exn.Response :?> HttpWebResponse
-        use reader = new StreamReader(errorResponse.GetResponseStream())
-        let error = reader.ReadToEnd()
-        log.LogError(sprintf "Request to %s failed with: %s %s" url exn.Message error)
-        return! raise exn
-}
-
-type Session =
-    { ID : string }
-
-    static member Decoder =
-        Decode.object (fun get ->
-            { ID = get.Required.Field "sessionId" Decode.string }
-        )
-
-let createOrJoinSession (log:ILogger) accessToken group = task {
-    let headers = ["Authorization", "Bearer " + accessToken]
-    let url = sprintf "https://api.ws.sonos.com/control/api/v1/groups/%s/playbackSession/joinOrCreate" group
-    let body = """{
-    "appId": "com.Forkmann.AudioHub",
-    "appContext": "1a2b3c",
-    "customData": "playlistid:12345"
-}"""
-
-    let! result = post log url headers body
-
-    match Decode.fromString Session.Decoder result with
-    | Error msg -> return failwith msg
-    | Ok session -> return session
-}
-
-
-let playStream (log:ILogger) accessToken (session:Session) (tag:Tag) = task {
-    let headers = ["Authorization", "Bearer " + accessToken]
-    let url = sprintf "https://api.ws.sonos.com/control/api/v1/playbackSessions/%s/playbackSession/loadStreamUrl" session.ID
-
-    match tag.Action with
-    | TagAction.PlayMusik stream ->
-        let body = sprintf """{
-      "streamUrl": "%s",
-      "playOnCompletion": true,
-      "stationMetadata": {
-        "name": "%s"
-      },
-      "itemId" : "%s"
-    }"""                stream.[0] (tag.Object + " - " + tag.Description) tag.Token
-
-
-        let! result = post log url headers body
-        log.LogTrace(result)
-    | _ ->
-        log.LogError(sprintf "TagAction %A can't be played on Sonos" tag.Action)
-}
 
 let previousFileEndpoint (userID,token) =
     pipeline {
@@ -228,35 +110,18 @@ let previousFileEndpoint (userID,token) =
                             Token = token
                             UserID = userID
                             Action = TagAction.UnknownTag
-                            LastVerified = DateTimeOffset.MinValue
                             Description = ""
                             Object = "" }
                         task { return t }
 
-                let! tag = mapYoutube tag
-                match user.SpeakerType with
-                | SpeakerType.Local ->
-                    let tag : TagForBox = {
-                        Token = tag.Token
-                        Object = tag.Object
-                        Description = tag.Description
-                        Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
+                let tag : TagForBox = {
+                    Token = tag.Token
+                    Object = tag.Object
+                    Description = tag.Description
+                    Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
 
-                    let txt = TagForBox.Encoder tag |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
-                | SpeakerType.Sonos ->
-                    let logger = ctx.GetLogger "PreviousFile"
-                    let! session = createOrJoinSession logger user.SonosAccessToken group
-                    do! playStream logger user.SonosAccessToken session tag
-
-                    let tag : TagForBox = {
-                        Token = tag.Token
-                        Object = tag.Object
-                        Description = tag.Description
-                        Action = TagActionForBox.Ignore }
-
-                    let txt = TagForBox.Encoder tag |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
+                let txt = TagForBox.Encoder tag |> Encode.toString 0
+                return! setBodyFromString txt next ctx
         })
     }
 
@@ -283,38 +148,20 @@ let nextFileEndpoint (userID,token) =
                             Token = token
                             UserID = userID
                             Action = TagAction.UnknownTag
-                            LastVerified = DateTimeOffset.MinValue
                             Description = ""
                             Object = "" }
                         task { return t }
 
-                let! tag = mapYoutube tag
                 let! _ = AzureTable.savePlayListPosition userID token position
 
-                match user.SpeakerType with
-                | SpeakerType.Local ->
-                    let tag : TagForBox = {
-                        Token = tag.Token
-                        Object = tag.Object
-                        Description = tag.Description
-                        Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
+                let tag : TagForBox = {
+                    Token = tag.Token
+                    Object = tag.Object
+                    Description = tag.Description
+                    Action = TagActionForBox.GetFromTagAction(tag.Action,position) }
 
-
-                    let txt = TagForBox.Encoder tag |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
-                | SpeakerType.Sonos ->
-                    let logger = ctx.GetLogger "NextFile"
-                    let! session = createOrJoinSession logger user.SonosAccessToken group
-                    do! playStream logger user.SonosAccessToken session tag
-
-                    let tag : TagForBox = {
-                        Token = tag.Token
-                        Object = tag.Object
-                        Description = tag.Description
-                        Action = TagActionForBox.Ignore }
-
-                    let txt = TagForBox.Encoder tag |> Encode.toString 0
-                    return! setBodyFromString txt next ctx
+                let txt = TagForBox.Encoder tag |> Encode.toString 0
+                return! setBodyFromString txt next ctx
         })
     }
 
@@ -328,6 +175,33 @@ let userTagsEndPoint userID =
         })
     }
 
+
+let volumeUpEndpoint userID =
+    pipeline {
+        plug (fun next ctx -> task {
+            match! AzureTable.getUser userID with
+            | None ->
+                return! Response.notFound ctx userID
+            | Some user ->
+                let logger = ctx.GetLogger "VolumeUp"
+                //do! Sonos.volumeUp logger user.SonosAccessToken Sonos.group
+                return! Response.ok ctx userID
+        })
+    }
+
+let volumeDownEndpoint userID =
+    pipeline {
+        plug (fun next ctx -> task {
+            match! AzureTable.getUser userID with
+            | None ->
+                return! Response.notFound ctx userID
+            | Some user ->
+                let logger = ctx.GetLogger "VolumeDown"
+                //do! Sonos.volumeDown logger user.SonosAccessToken Sonos.group
+                return! Response.ok ctx userID
+        })
+    }
+
 let historyEndPoint userID =
     pipeline {
         set_header "Content-Type" "application/json"
@@ -338,18 +212,21 @@ let historyEndPoint userID =
         })
     }
 
-let startupEndpoint =
+let startupEndpoint userID =
     pipeline {
         set_header "Content-Type" "application/json"
         plug (fun next ctx -> task {
-            let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
-            let action = TagActionForBox.PlayMusik sas
+            match! AzureTable.getUser userID with
+            | None ->
+                return! Response.notFound ctx userID
+            | Some user ->
+                let! sas = getSASMediaLink "d97cdddb-8a19-4690-8ba5-b8ea43d3641f"
 
-            let txt =
-                action
-                |> TagActionForBox.Encoder
-                |> Encode.toString 0
-            return! setBodyFromString txt next ctx
+                let txt =
+                    TagActionForBox.PlayMusik sas
+                    |> TagActionForBox.Encoder
+                    |> Encode.toString 0
+                return! setBodyFromString txt next ctx
         })
     }
 
@@ -371,45 +248,13 @@ let firmwareEndpoint =
         })
     }
 
-let discoverYoutube() = task {
-    try
-        let! tags = getAllTags()
-        for tag in tags do
-            try
-                match tag.Action with
-                | TagAction.PlayYoutube url ->
-                    let! _,urls = discoverYoutubeLink url
-                    let urls =
-                        urls
-                        |> Array.filter (fun x -> x.Contains "&mime=audio")
-                    let! _ = saveLinks tag urls
-                    let! _ = saveTag { tag with LastVerified = DateTimeOffset.UtcNow }
-                    ()
-                | _ -> ()
-            with
-            | _ -> ()
-    with
-    | _ -> ()
-}
-
-let youtubeEndpoint =
-    pipeline {
-        set_header "Content-Type" "application/json"
-        plug (fun next ctx -> task {
-            do! discoverYoutube()
-            let! _,urls = discoverYoutubeLink "https://www.youtube.com/watch?v=DeTePthFfDY"
-            let txt = sprintf "%A" urls
-            return! setBodyFromString txt next ctx
-        })
-    }
 
 let tagHistoryBroadcaster = ConnectionManager()
 
 let t = task {
     while true do
         let body = Encode.Auto.toString(0, TagHistorySocketEvent.ToDo)
-        printfn "Sending"
-        do! tagHistoryBroadcaster.BroadcastTextAsync(body,key = "B827EB8E6CA5")
+        do! tagHistoryBroadcaster.BroadcastTextAsync(body,key = "B827EBA39A31")
         do! Task.Delay (1000 * 60 * 20)
 }
 
@@ -418,11 +263,12 @@ let webApp =
         getf "/api/nextfile/%s/%s" nextFileEndpoint
         getf "/api/previousfile/%s/%s" previousFileEndpoint
         getf "/api/usertags/%s" userTagsEndPoint
+        getf "/api/volumeup/%s" volumeUpEndpoint
+        getf "/api/volumedown/%s" volumeDownEndpoint
         postf "/api/upload/%s" uploadEndpoint
         getf "/api/history/%s" historyEndPoint
-        get "/api/startup" startupEndpoint
+        getf "/api/startup/%s" startupEndpoint
         get "/api/firmware" firmwareEndpoint
-        get "/api/youtube" youtubeEndpoint
         get "/api/latestfirmware" getLatestFirmware
         getf "/api/taghistorysocket/%s" (TagHistorySocket.openSocket tagHistoryBroadcaster)
     }
@@ -441,13 +287,6 @@ let app = application {
     service_config configureSerialization
     use_gzip
     app_config configureApp
-}
-
-let discoverTask = task {
-    while true do
-        do! discoverYoutube()
-        do! Task.Delay (1000 * 60 * 20)
-    return ()
 }
 
 run app

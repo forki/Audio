@@ -30,7 +30,6 @@ type TagAction =
 | UnknownTag
 | StopMusik
 | PlayMusik of string []
-| PlayYoutube of string
 | PlayBlobMusik of System.Guid []
 
     static member Encoder (action : TagAction) =
@@ -47,10 +46,6 @@ type TagAction =
             Encode.object [
                 "PlayMusik", Encode.array (Array.map Encode.string urls)
             ]
-        | TagAction.PlayYoutube url ->
-            Encode.object [
-                "PlayYoutube", Encode.string url
-            ]
         | TagAction.PlayBlobMusik urls ->
             Encode.object [
                 "PlayBlobMusik", Encode.array (Array.map Encode.guid urls)
@@ -62,8 +57,6 @@ type TagAction =
             Decode.field "StopMusik" (Decode.succeed TagAction.StopMusik)
             Decode.field "PlayMusik" (Decode.array Decode.string)
                 |> Decode.map TagAction.PlayMusik
-            Decode.field "PlayYoutube" Decode.string
-                |> Decode.map TagAction.PlayYoutube
             Decode.field "PlayBlobMusik" (Decode.array Decode.guid)
                 |> Decode.map TagAction.PlayBlobMusik
         ]
@@ -115,17 +108,10 @@ type TagActionForBox =
             Decode.field "PlayMusik" Decode.string |> Decode.map TagActionForBox.PlayMusik
         ]
 
-type Link = {
-    Token : string
-    Url : string
-    Order : int
-}
-
 type Tag =
     { Token : string
       Object : string
       Description : string
-      LastVerified : DateTimeOffset
       UserID : string
       Action : TagAction }
 
@@ -135,7 +121,6 @@ type Tag =
             "Description", Encode.string tag.Description
             "UserID", Encode.string tag.UserID
             "Object", Encode.string tag.Object
-            "LastVerified", Encode.datetimeOffset tag.LastVerified
             "Action", TagAction.Encoder tag.Action
         ]
     static member Decoder =
@@ -144,56 +129,19 @@ type Tag =
               Object = get.Required.Field "Object" Decode.string
               Description = get.Required.Field "Description" Decode.string
               UserID = get.Required.Field "UserID" Decode.string
-              LastVerified =
-                    get.Optional.Field "LastVerified" Decode.datetimeOffset
-                    |> Option.defaultValue DateTimeOffset.MinValue
               Action = get.Required.Field "Action" TagAction.Decoder }
         )
 
-[<RequireQualifiedAccess>]
-type SpeakerType =
-| Local
-| Sonos
-
-    static member Encoder (action : SpeakerType) =
-        match action with
-        | Local ->
-            Encode.object [
-                "Local", Encode.nil
-            ]
-        | Sonos ->
-            Encode.object [
-                "Sonos", Encode.nil
-            ]
-
-    static member Decoder =
-        Decode.oneOf [
-            Decode.field "Local" (Decode.succeed SpeakerType.Local)
-            Decode.field "Sonos" (Decode.succeed SpeakerType.Sonos)
-        ]
-
 type User =
-    { UserID : string
-      SpeakerType : SpeakerType
-      SonosAccessToken : string
-      SonosRefreshToken : string
-      SonosID : string }
+    { UserID : string }
 
     static member Encoder (user : User) =
         Encode.object [
             "UserID", Encode.string user.UserID
-            "SpeakerType", SpeakerType.Encoder user.SpeakerType
-            "SonosAccessToken", Encode.string user.SonosAccessToken
-            "SonosRefreshToken", Encode.string user.SonosRefreshToken
-            "SonosID", Encode.string user.SonosID
         ]
     static member Decoder =
         Decode.object (fun get ->
-            { UserID = get.Required.Field "UserID" Decode.string
-              SpeakerType = get.Required.Field "SpeakerType" SpeakerType.Decoder
-              SonosAccessToken = get.Required.Field "SonosAccessToken" Decode.string
-              SonosRefreshToken = get.Required.Field "SonosRefreshToken" Decode.string
-              SonosID = get.Required.Field "SonosID" Decode.string }
+            { UserID = get.Required.Field "UserID" Decode.string }
         )
 
 type Request =

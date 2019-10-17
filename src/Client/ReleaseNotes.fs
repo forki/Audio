@@ -1,14 +1,18 @@
 module internal ReleaseNotes
 
-let Version = "1.5.6"
+let Version = "1.6.0"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 1.5.6 - 2019-08-20
+## 1.6.0 - 2019-10-16
+* Removed Sonos support
+
+## 1.5.23 - 2019-08-22
 * Sonos support
+* Removed Youtube
 
 ## 1.4.22 - 2019-08-20
 * Update deps
@@ -42,7 +46,7 @@ let Notes = """
 ## 0.13.22 - 2018-10-24
 * Volume buttons
 
-## 0.12.1 - 2018-10-23
+## 0.12.2 - 2018-10-23
 * Volume buttons
 
 ## 0.11.21 - 2018-10-23

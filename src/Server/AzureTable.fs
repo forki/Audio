@@ -135,44 +135,28 @@ let connection = lazy (
     CloudStorageAccount.Parse storageConnectionString.Value
 )
 
-
 let tagsTable = lazy(getTable "tags" (connection.Force()))
 let usersTable = lazy(getTable "users" (connection.Force()))
 let positionsTable = lazy(getTable "positions" (connection.Force()))
-let linksTable = lazy(getTable "links" (connection.Force()))
 let requestsTable = lazy(getTable "requests" (connection.Force()))
-
 
 open ServerCore.Domain
 open Thoth.Json.Net
 open System
 
 
-let mapLink (entity: DynamicTableEntity) : Link =
-    { Token = entity.PartitionKey
-      Order = int entity.RowKey
-      Url = getStringProperty "Url" entity }
-
 let mapTag (entity: DynamicTableEntity) : Tag =
     { UserID = entity.PartitionKey
       Token = entity.RowKey
       Description = getStringProperty "Description" entity
       Object = getStringProperty "Object" entity
-      LastVerified = getOptionalDateTimeOffsetProperty "LastVerified" entity |> Option.defaultValue DateTimeOffset.MinValue
       Action =
         match Decode.fromString TagAction.Decoder (getStringProperty "Action" entity) with
         | Error msg -> failwith msg
         | Ok action -> action }
 
 let mapUser (entity: DynamicTableEntity) : User =
-    { UserID = entity.RowKey
-      SonosID = getStringProperty "SonosID" entity
-      SonosAccessToken = getStringProperty "SonosAccessToken" entity
-      SonosRefreshToken = getStringProperty "SonosRefreshToken" entity
-      SpeakerType =
-        match Decode.fromString SpeakerType.Decoder (getStringProperty "SpeakerType" entity) with
-        | Error msg -> failwith msg
-        | Ok action -> action }
+    { UserID = entity.RowKey }
 
 let mapRequest (entity: DynamicTableEntity) : Request =
     { UserID = entity.PartitionKey
@@ -191,25 +175,9 @@ let saveTag (tag:Tag) =
     entity.Properties.["Action"] <- EntityProperty.GeneratePropertyForString (TagAction.Encoder tag.Action |> Encode.toString 0)
     entity.Properties.["Description"] <- EntityProperty.GeneratePropertyForString tag.Description
     entity.Properties.["Object"] <- EntityProperty.GeneratePropertyForString tag.Object
-    entity.Properties.["LastVerified"] <- EntityProperty.GeneratePropertyForDateTimeOffset(Nullable tag.LastVerified)
     let operation = TableOperation.InsertOrReplace entity
     tagsTable.Force().ExecuteAsync operation
 
-
-let saveLinks (tag:Tag) (urls:string []) = task {
-    let batch = TableBatchOperation()
-    let mutable i = 0
-    for url in urls do
-        let entity = DynamicTableEntity()
-        entity.PartitionKey <- tag.Token
-        entity.RowKey <- string i
-        entity.Properties.["Url"] <- EntityProperty.GeneratePropertyForString url
-        batch.InsertOrReplace entity
-        i <- i + 1
-    if i > 0 then
-        let! _ = linksTable.Force().ExecuteBatchAsync batch
-        ()
-}
 
 let saveRequest (userID:string) (token:string) =
     let entity = DynamicTableEntity()
@@ -308,19 +276,3 @@ let getAllTags () = task {
     return [| for result in results -> mapTag result |]
 }
 
-let getAllLinksForTag (tagToken:string) = task {
-    let rec getResults token = task {
-        let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, tagToken)
-        let! result = linksTable.Force().ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
-        let token = result.ContinuationToken
-        let result = result |> Seq.toList
-        if isNull token then
-            return result
-        else
-            let! others = getResults token
-            return result @ others }
-
-    let! results = getResults null
-
-    return [| for result in results -> mapLink result |]
-}

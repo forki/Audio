@@ -84,7 +84,7 @@ let fetchFirmwareCmd = Cmd.OfPromise.either fetchFirmware () (Ok >> FirmwareLoad
 let fetchTagsCmd userID = Cmd.OfPromise.either fetchData userID (Ok >> TagsLoaded) (Error >> TagsLoaded)
 
 let init () : Model * Cmd<Msg> =
-    let userID = "B827EB8E6CA5" // TODO:
+    let userID = "B827EBA39A31" // TODO:
     let historyModel,historyCmd = TagHistory.init userID
 
     let initialModel = {
@@ -241,7 +241,6 @@ let tagsTable (model : Model) (dispatch : Msg -> unit) =
                             | TagAction.PlayMusik urls ->
                                 for url in urls do
                                     yield td [ ] [ a [Href url ] [str tag.Description ] ]
-                            | TagAction.PlayYoutube url -> yield td [ ] [ a [Href url ] [str tag.Description ] ]
                             | _ -> yield td [ Title (tag.Action.ToString()) ] [ str tag.Description ]
                         ]
                 ]

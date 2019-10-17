@@ -14,13 +14,13 @@ open System
 open Fulma
 open ServerCore.Domain
 open Fetch
-open Browser.XMLHttpRequest
+open Browser.Blob
 
 type Model = {
     Tags: TagList option
     IsUploading :bool
     Message : string
-    File: obj option
+    File: string option
     Firmware: Firmware option
     ShownTags : Tag []
     FilterText : string
@@ -31,7 +31,7 @@ type Model = {
 type Msg =
 | TagHistoryMsg of TagHistory.Msg
 | FetchTags
-| FileNameChanged of obj
+| FileNameChanged of string
 | FilterChanged of string
 | Upload
 | RefreshList

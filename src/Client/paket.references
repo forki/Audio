@@ -8,7 +8,7 @@ group Client
     Fulma
     Fable.FontAwesome.Free
     Fable.Browser.Dom
+    Fable.Browser.Blob
     Thoth.Json.Net
     Thoth.Json
     Fable.Browser.WebSocket
-    Fable.Browser.XMLHttpRequest

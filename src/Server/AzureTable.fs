@@ -5,7 +5,6 @@ open Microsoft.WindowsAzure.Storage.Table
 open System.Threading.Tasks
 open FSharp.Control.Tasks.ContextInsensitive
 
-
 let getTable tableName (connection: CloudStorageAccount) =
     async {
         let client = connection.CreateCloudTableClient()
@@ -114,20 +113,34 @@ let inline getOptionalDoubleProperty (propName:string) (entity: DynamicTableEnti
     | exn -> failwithf "Could not get Double value of property %s for entity %s %s. Message: %s" propName entity.PartitionKey entity.RowKey exn.Message
 
 
-let storageConnectionString =
-    let str = System.Environment.GetEnvironmentVariable("APPSETTING_CONNSTR_STORAGE")
-    if isNull str then
-        "UseDevelopmentStorage=true"
-    else
-        str
+open Microsoft.Azure.KeyVault
+open Microsoft.Azure.Services.AppAuthentication
 
-let connection = CloudStorageAccount.Parse storageConnectionString
+let keyVaultClient = lazy (
+    let azureServiceTokenProvider = AzureServiceTokenProvider()
+    let callback authority resource scope = azureServiceTokenProvider.KeyVaultTokenCallback.Invoke(authority,resource,scope)
+    new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(callback))
+)
 
-let tagsTable = getTable "tags" connection
-let usersTable = getTable "users" connection
-let positionsTable = getTable "positions" connection
-let linksTable = getTable "links" connection
-let requestsTable = getTable "requests" connection
+let getSecretAsync vault secret =
+    keyVaultClient.Force().GetSecretAsync(sprintf "https://%s.vault.azure.net/secrets/%s" vault secret)
+
+let getSecret vault secret =
+    getSecretAsync vault secret
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
+
+let connection = lazy (
+    let storageConnectionString = getSecret "AudioVault" "StorageConnectionKey"
+    CloudStorageAccount.Parse storageConnectionString.Value
+)
+
+
+let tagsTable = lazy(getTable "tags" (connection.Force()))
+let usersTable = lazy(getTable "users" (connection.Force()))
+let positionsTable = lazy(getTable "positions" (connection.Force()))
+let linksTable = lazy(getTable "links" (connection.Force()))
+let requestsTable = lazy(getTable "requests" (connection.Force()))
 
 
 open ServerCore.Domain
@@ -180,7 +193,7 @@ let saveTag (tag:Tag) =
     entity.Properties.["Object"] <- EntityProperty.GeneratePropertyForString tag.Object
     entity.Properties.["LastVerified"] <- EntityProperty.GeneratePropertyForDateTimeOffset(Nullable tag.LastVerified)
     let operation = TableOperation.InsertOrReplace entity
-    tagsTable.ExecuteAsync operation
+    tagsTable.Force().ExecuteAsync operation
 
 
 let saveLinks (tag:Tag) (urls:string []) = task {
@@ -194,7 +207,7 @@ let saveLinks (tag:Tag) (urls:string []) = task {
         batch.InsertOrReplace entity
         i <- i + 1
     if i > 0 then
-        let! _ = linksTable.ExecuteBatchAsync batch
+        let! _ = linksTable.Force().ExecuteBatchAsync batch
         ()
 }
 
@@ -204,13 +217,13 @@ let saveRequest (userID:string) (token:string) =
     entity.RowKey <- System.DateTimeOffset.UtcNow.ToString("o")
     entity.Properties.["Token"] <- EntityProperty.GeneratePropertyForString token
     let operation = TableOperation.InsertOrReplace entity
-    requestsTable.ExecuteAsync operation
+    requestsTable.Force().ExecuteAsync operation
 
 
 let getAllRequestsForUser (userID:string) = task {
     let rec getResults token = task {
         let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userID)
-        let! result = requestsTable.ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
+        let! result = requestsTable.Force().ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
         let token = result.ContinuationToken
         let result = result |> Seq.toList
         if isNull token then
@@ -230,11 +243,11 @@ let savePlayListPosition (userID:string) (token:string) position =
     entity.RowKey <- token
     entity.Properties.["Position"] <- EntityProperty.GeneratePropertyForInt(Nullable position)
     let operation = TableOperation.InsertOrReplace entity
-    positionsTable.ExecuteAsync operation
+    positionsTable.Force().ExecuteAsync operation
 
 let getTag (userID:string) token = task {
     let query = TableOperation.Retrieve(userID, token)
-    let! r = tagsTable.ExecuteAsync(query)
+    let! r = tagsTable.Force().ExecuteAsync(query)
     if r.HttpStatusCode <> 200 then
         return None
     else
@@ -244,7 +257,7 @@ let getTag (userID:string) token = task {
 
 let getUser (userID:string) = task {
     let query = TableOperation.Retrieve("users", userID)
-    let! r = usersTable.ExecuteAsync(query)
+    let! r = usersTable.Force().ExecuteAsync(query)
     if r.HttpStatusCode <> 200 then
         return None
     else
@@ -254,7 +267,7 @@ let getUser (userID:string) = task {
 
 let getPlayListPosition (userID:string) token = task {
     let query = TableOperation.Retrieve(userID, token)
-    let! r = positionsTable.ExecuteAsync(query)
+    let! r = positionsTable.Force().ExecuteAsync(query)
     if r.HttpStatusCode <> 200 then
         return None
     else
@@ -265,7 +278,7 @@ let getPlayListPosition (userID:string) token = task {
 let getAllTagsForUser (userID:string) = task {
     let rec getResults token = task {
         let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userID)
-        let! result = tagsTable.ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
+        let! result = tagsTable.Force().ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
         let token = result.ContinuationToken
         let result = result |> Seq.toList
         if isNull token then
@@ -281,7 +294,7 @@ let getAllTagsForUser (userID:string) = task {
 
 let getAllTags () = task {
     let rec getResults token = task {
-        let! result = tagsTable.ExecuteQuerySegmentedAsync(TableQuery(), token)
+        let! result = tagsTable.Force().ExecuteQuerySegmentedAsync(TableQuery(), token)
         let token = result.ContinuationToken
         let result = result |> Seq.toList
         if isNull token then
@@ -298,7 +311,7 @@ let getAllTags () = task {
 let getAllLinksForTag (tagToken:string) = task {
     let rec getResults token = task {
         let query = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, tagToken)
-        let! result = linksTable.ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
+        let! result = linksTable.Force().ExecuteQuerySegmentedAsync(TableQuery(FilterString = query), token)
         let token = result.ContinuationToken
         let result = result |> Seq.toList
         if isNull token then

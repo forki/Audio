@@ -6,3 +6,5 @@ group Server
     WindowsAzure.Storage
     Microsoft.AspNetCore.WebSockets
     Microsoft.AspNetCore.WebSockets.Server
+    Microsoft.Azure.Services.AppAuthentication
+    Microsoft.Azure.KeyVault

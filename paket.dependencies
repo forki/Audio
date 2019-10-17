@@ -10,6 +10,8 @@ group Server
     nuget WindowsAzure.Storage
     nuget Microsoft.AspNetCore.WebSockets
     nuget Microsoft.AspNetCore.WebSockets.Server
+    nuget Microsoft.Azure.Services.AppAuthentication
+    nuget Microsoft.Azure.KeyVault
 
 group Client
     storage: none

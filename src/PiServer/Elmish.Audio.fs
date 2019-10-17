@@ -44,7 +44,7 @@ module Program =
     let withAudio stoppedMsg (program:Elmish.Program<_,_,_,_>) =
         let mutable lastView = None
 
-        let sendMsg file dispatch _args = 
+        let sendMsg file dispatch _args =
             dispatch (stoppedMsg file)
 
         let play dispatch file volume =

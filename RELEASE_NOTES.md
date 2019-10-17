@@ -1,5 +1,8 @@
 # Release Notes
 
+## 1.6.0 - 2019-10-17
+* Sonos support
+
 ## 1.5.6 - 2019-08-20
 * Sonos support
 

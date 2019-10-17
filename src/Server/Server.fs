@@ -23,7 +23,7 @@ let publicPath = Path.GetFullPath "client"
 
 let getSASMediaLink mediaID = task {
     let connection = AzureTable.connection
-    let blobClient = connection.CreateCloudBlobClient()
+    let blobClient = connection.Force().CreateCloudBlobClient()
     let mediaContainer = blobClient.GetContainerReference("media")
     let! _x = mediaContainer.CreateIfNotExistsAsync()
     let blockBlob = mediaContainer.GetBlockBlobReference(mediaID)
@@ -40,7 +40,7 @@ let uploadMusik (stream:Stream) = task {
     let connection = AzureTable.connection
     let mediaID = System.Guid.NewGuid()
 
-    let blobClient = connection.CreateCloudBlobClient()
+    let blobClient = connection.Force().CreateCloudBlobClient()
     let mediaContainer = blobClient.GetContainerReference "media"
     let! _ = mediaContainer.CreateIfNotExistsAsync()
 

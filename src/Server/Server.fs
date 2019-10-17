@@ -14,8 +14,6 @@ open System.Threading
 open System.Threading.Tasks
 open Giraffe.WebSocket
 open Microsoft.AspNetCore.Builder
-open System.Diagnostics
-open ServerCode.Storage.AzureTable
 
 #if DEBUG
 let publicPath = Path.GetFullPath "../Client/public"
@@ -184,7 +182,6 @@ let volumeUpEndpoint userID =
                 return! Response.notFound ctx userID
             | Some user ->
                 let logger = ctx.GetLogger "VolumeUp"
-                //do! Sonos.volumeUp logger user.SonosAccessToken Sonos.group
                 return! Response.ok ctx userID
         })
     }
@@ -197,7 +194,6 @@ let volumeDownEndpoint userID =
                 return! Response.notFound ctx userID
             | Some user ->
                 let logger = ctx.GetLogger "VolumeDown"
-                //do! Sonos.volumeDown logger user.SonosAccessToken Sonos.group
                 return! Response.ok ctx userID
         })
     }

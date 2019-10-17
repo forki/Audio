@@ -1,0 +1,8 @@
+group Server
+    FSharp.Core
+    Saturn
+    Thoth.Json.Net
+    Thoth.Json
+    WindowsAzure.Storage
+    Microsoft.Azure.Services.AppAuthentication
+    Microsoft.Azure.KeyVault

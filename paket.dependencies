@@ -8,8 +8,6 @@ group Server
     nuget Thoth.Json.Net
     nuget Thoth.Json
     nuget WindowsAzure.Storage
-    nuget Microsoft.AspNetCore.WebSockets
-    nuget Microsoft.AspNetCore.WebSockets.Server
     nuget Microsoft.Azure.Services.AppAuthentication
     nuget Microsoft.Azure.KeyVault
 

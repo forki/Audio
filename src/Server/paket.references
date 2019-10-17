@@ -4,7 +4,5 @@ group Server
     Thoth.Json.Net
     Thoth.Json
     WindowsAzure.Storage
-    Microsoft.AspNetCore.WebSockets
-    Microsoft.AspNetCore.WebSockets.Server
     Microsoft.Azure.Services.AppAuthentication
     Microsoft.Azure.KeyVault

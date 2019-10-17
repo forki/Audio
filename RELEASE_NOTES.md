@@ -1,5 +1,8 @@
 # Release Notes
 
+## 1.7.0 - 2019-10-17
+* .NET Core 3
+
 ## 1.6.1 - 2019-10-16
 * Removed Sonos support
 * Key Vault

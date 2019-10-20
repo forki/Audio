@@ -18,7 +18,6 @@ open Unosquare.RaspberryIO.Abstractions
 
 GeneralIO.init()
 
-
 let runIn (timeSpan:TimeSpan) successMsg errorMsg =
     let t() = task {
         do! Task.Delay (int timeSpan.TotalMilliseconds)
@@ -204,7 +203,8 @@ let update (msg:Msg) (model:Model) =
                 else
                     model,Cmd.none
             with
-            | _ ->
+            | exn ->
+                log.ErrorFormat("Player stopped with error: {0}", exn.Message)
                 model,Cmd.none
         | _ ->
             model,Cmd.none

@@ -1,13 +1,13 @@
 module internal ReleaseNotes
 
-let Version = "1.7.6"
+let Version = "1.7.8"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
 
-## 1.7.6 - 2019-10-24
+## 1.7.8 - 2019-10-30
 * .NET Core 3
 
 ## 1.6.1 - 2019-10-16

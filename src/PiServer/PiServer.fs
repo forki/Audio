@@ -13,10 +13,8 @@ open System.Reflection
 open GeneralIO
 open Elmish
 open Elmish.Audio
-open Unosquare.RaspberryIO.Abstractions
 
 
-GeneralIO.init()
 
 let runIn (timeSpan:TimeSpan) successMsg errorMsg =
     let t() = task {
@@ -35,6 +33,14 @@ let log =
     let log = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType)
     log
 
+
+let controller =
+    try
+        new  GeneralIO.Controller(log)
+    with
+    | exn ->
+        log.ErrorFormat("Error during GPIO init: {0}", exn.Message)
+        reraise()
 
 type MediaFile = {
     FileName : string
@@ -72,12 +78,12 @@ type Msg =
 let rfidLoop (dispatch,nodeServices:INodeServices) = task {
     log.InfoFormat("Connecting all buttons")
 
-    use _nextButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio04], fun () -> dispatch NextMediaFile)
-    use _previousButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio18], fun () -> dispatch PreviousMediaFile)
-    use _volumeDownButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio26], fun () -> dispatch VolumeDown)
-    use _volumeUpButton = new Button(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio12], fun () -> dispatch VolumeUp)
-    let blueLight = GeneralIO.LED(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio20])
-    let yellowLight = GeneralIO.LED(Unosquare.RaspberryIO.Pi.Gpio.[BcmPin.Gpio21])
+    let _nextButton = controller.NewButton(4, fun () -> dispatch NextMediaFile)
+    let _previousButton = controller.NewButton(18, fun () -> dispatch PreviousMediaFile)
+    let _volumeDownButton = controller.NewButton(26, fun () -> dispatch VolumeDown)
+    let _volumeUpButton = controller.NewButton(12, fun () -> dispatch VolumeUp)
+    let blueLight = controller.NewLED(20)
+    let yellowLight = controller.NewLED(21)
     let allLights = [| blueLight; yellowLight|]
 
     let! _ = allLights |> Array.map (fun l -> l.Blink(2)) |> Task.WhenAll
@@ -305,5 +311,7 @@ Program.runWith nodeServices app
 let t = task { while true do do! Task.Delay 10000 }
 
 t |> Async.AwaitTask |> Async.RunSynchronously
+
+(controller :> IDisposable).Dispose()
 
 log.InfoFormat("PiServer {0} is shutting down.", ReleaseNotes.Version)

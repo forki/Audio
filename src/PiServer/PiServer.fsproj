@@ -1,34 +1,29 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <OutputType>Exe</OutputType>
-        <TargetFramework>netcoreapp3.0</TargetFramework>
-        <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
-    </PropertyGroup>
-    <ItemGroup>
-        <Compile Include="..\Client\ReleaseNotes.fs" />
-        <Compile Include="..\Shared\Shared.fs" />
-        <Compile Include="..\Server\Utils.fs" />
-        <Compile Include="SemVer.fs" />
-        <Compile Include="FirmwareUpdate.fs" />
-        <Compile Include="Elmish.Audio.fs" />
-        <Compile Include="GeneralIO.fs" />
-        <Compile Include="PiServer.fs" />
-    </ItemGroup>
-    <ItemGroup>
-        <None Include="read-tag.js">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-
-        <None Include="package.json">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-        <None Include="log4net.config">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-        <None Include="PiServer">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-    </ItemGroup>
-    <Import Project="..\..\.paket\Paket.Restore.targets" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Client/ReleaseNotes.fs" />
+    <Compile Include="../Shared/Shared.fs" />
+    <Compile Include="../Server/Utils.fs" />
+    <Compile Include="SemVer.fs" />
+    <Compile Include="FirmwareUpdate.fs" />
+    <Compile Include="Elmish.Audio.fs" />
+    <Compile Include="GeneralIO.fs" />
+    <Compile Include="PiServer.fs" />
+    <None Include="read-tag.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="package.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="log4net.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="PiServer">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

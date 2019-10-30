@@ -5,7 +5,5 @@ group Pi
     Thoth.Json.Net
     Thoth.Json
     log4net
-    Unosquare.Raspberry.IO
+    System.Device.Gpio
     Elmish
-    Unosquare.WiringPi
-    

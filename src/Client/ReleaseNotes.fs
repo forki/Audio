@@ -1,11 +1,14 @@
 module internal ReleaseNotes
 
-let Version = "1.7.8"
+let Version = "1.8.0"
 
 let IsPrerelease = false
 
 let Notes = """
 # Release Notes
+
+## 1.8.0 - 2019-10-30
+* Use GPIO from .NET Core 3
 
 ## 1.7.8 - 2019-10-30
 * .NET Core 3

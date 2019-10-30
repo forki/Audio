@@ -54,5 +54,4 @@ group Pi
     nuget Thoth.Json
     nuget log4net
     nuget Elmish
-    nuget Unosquare.Raspberry.IO strategy:min
-    nuget Unosquare.WiringPi strategy:min
+    nuget System.Device.Gpio

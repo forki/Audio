@@ -226,8 +226,7 @@ let startupEndpoint userID =
         })
     }
 
-let firmwareLink = @"https://audiohubstorage.blob.core.windows.net/firmware/PiFirmware.1.8.0.zip?st=2019-10-30T20%3A02%3A09Z&se=2019-10-31T20%3A02%3A09Z&sp=rl&sv=2018-03-28&sr=b&sig=mfrAkduWnctkNsQbcqh2PzUfptKLuArdtiZWu1dU%2B60%3D"
-//sprintf "https://github.com/forki/Audio/releases/download/%s/PiFirmware.%s.zip" ReleaseNotes.Version ReleaseNotes.Version
+let firmwareLink = sprintf "https://github.com/forki/Audio/releases/download/%s/PiFirmware.%s.zip" ReleaseNotes.Version ReleaseNotes.Version
 
 let getLatestFirmware next ctx = redirectTo false firmwareLink next ctx
 

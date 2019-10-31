@@ -36,7 +36,7 @@ let log =
 
 let controller =
     try
-        new GeneralIO.Controller(log)
+        new GeneralIO.Controller()
     with
     | exn ->
         log.ErrorFormat("Error during GPIO init: {0}", exn.Message)

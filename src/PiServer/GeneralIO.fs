@@ -5,7 +5,7 @@ open System.Threading.Tasks
 open FSharp.Control.Tasks.ContextInsensitive
 open System.Device.Gpio
 
-type LED(controller:GpioController,log:log4net.ILog,pin:int) =
+type LED internal (controller:GpioController,pin:int) =
     let mutable active = false
     let mutable blinking = false
     do
@@ -45,7 +45,7 @@ type LED(controller:GpioController,log:log4net.ILog,pin:int) =
 
         member this.StopBlinking() = this.Deactivate()
 
-type CableConnection(controller:GpioController,log:log4net.ILog,pin:int) =
+type CableConnection internal (controller:GpioController,pin:int) =
     let mutable onConnected = None
     let mutable onDisconnected = None
     let mutable lastState = None
@@ -53,27 +53,25 @@ type CableConnection(controller:GpioController,log:log4net.ILog,pin:int) =
     let execute expectedState f =
         match lastState with
         | Some s ->
-            let state = controller.Read(pin) = PinValue.High
-            if state = expectedState && s <> state then
+            let highResistance = controller.Read(pin) = PinValue.High
+            if highResistance = expectedState && s <> highResistance then
                 f()
-                lastState <- Some state
+                lastState <- Some highResistance
         | None ->
-            let state = controller.Read(pin) = PinValue.High
-            if state = expectedState then
+            let highResistance = controller.Read(pin) = PinValue.High
+            if highResistance = expectedState then
                 f()
-                lastState <- Some state
+                lastState <- Some highResistance
 
     do
         controller.OpenPin(pin, PinMode.InputPullUp)
 
         let rising(_sender:obj) (_e:PinValueChangedEventArgs) =
-            log.InfoFormat("Rising - unconnected")
             match onDisconnected with
             | None -> ()
             | Some f -> execute true f
 
         let falling(_sender:obj) (_e:PinValueChangedEventArgs) =
-            log.InfoFormat("Falling - connected")
             match onConnected with
             | None -> ()
             | Some f -> execute false f
@@ -96,46 +94,24 @@ type CableConnection(controller:GpioController,log:log4net.ILog,pin:int) =
         onDisconnected <- Some f
         execute true f
 
-type Button(controller:GpioController,log:log4net.ILog,pin:int,onPress) =
-    let mutable lastState = None
-
-    let execute () =
-        match lastState with
-        | Some s ->
-            let state = controller.Read(pin) = PinValue.High
-            if not state && s <> state then
-                lastState <- Some state
-        | None ->
-            let state = controller.Read(pin) = PinValue.High
-            if not state then
-                onPress()
-                lastState <- Some state
-
+type Button internal (controller:GpioController,pin:int,onPress) =
+    let mutable cableConnection = CableConnection (controller,pin)
     do
-        controller.OpenPin(pin, PinMode.InputPullUp)
-
-        let falling(_sender:obj) (_e:PinValueChangedEventArgs) =
-            log.InfoFormat("Falling - pressed")
-            execute ()
-
-        controller.RegisterCallbackForPinValueChangedEvent(
-            pin,
-            PinEventTypes.Falling,
-            PinChangeEventHandler falling)
+        cableConnection.SetOnConnected onPress
 
 
-type Controller(log:log4net.ILog) =
+type Controller() =
     let controller = new GpioController(PinNumberingScheme.Logical)
 
     with
         member __.NewLED(pin) =
-            LED(controller,log,pin)
+            LED(controller,pin)
 
         member __.NewCableConnection(pin:int) =
-            CableConnection(controller,log,pin)
+            CableConnection(controller,pin)
 
         member __.NewButton(pin:int,onPress) =
-            Button(controller,log,pin,onPress)
+            Button(controller,pin,onPress)
 
         interface IDisposable with
             member __.Dispose() = controller.Dispose()

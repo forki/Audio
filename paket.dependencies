@@ -1,5 +1,6 @@
 group Server
     storage: none
+    framework: netstandard2.0, netcoreapp3.0
     source https://api.nuget.org/v3/index.json
 
     nuget FSharp.Core
@@ -13,6 +14,7 @@ group Server
 
 group Client
     storage: none
+    framework: netstandard2.0
     source https://api.nuget.org/v3/index.json
 
     nuget Fable.Core
@@ -44,6 +46,7 @@ group Build
 
 group Pi
     storage: none
+    framework: netstandard2.0, netcoreapp3.0
     source https://api.nuget.org/v3/index.json
 
     nuget FSharp.Core
